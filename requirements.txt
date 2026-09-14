@@ -1,0 +1,5 @@
+flask
+mistralai
+PyMuPDF
+python-dateutil
+python-dotenv
