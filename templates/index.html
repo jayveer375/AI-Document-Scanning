@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Document Verification</title>
+</head>
+<body>
+
+<h1>Document Verification Form</h1>
+
+{% if error %}
+<p><strong>Error:</strong> {{ error }}</p>
+{% endif %}
+
+<form action="/verify" method="post" enctype="multipart/form-data">
+
+    <label for="document_type">Document Type</label><br>
+    <select name="document_type" id="document_type">
+        <option value="Student ID Card">Student ID Card</option>
+    </select>
+    <br><br>
+
+    {% for field in fields %}
+        <label for="{{ field }}">{{ field }}</label><br>
+        <input type="text" name="{{ field }}" id="{{ field }}"><br><br>
+    {% endfor %}
+
+    <label for="document_image">Upload Image</label><br>
+    <input type="file" name="document_image" id="document_image" accept=".jpg,.jpeg,.png,.webp,.pdf"><br><br>
+
+    <button type="submit">Submit</button>
+
+</form>
+
+{% if results %}
+<hr>
+<h2>Verification Report</h2>
+
+<p>Document Type: {{ document_type }}</p>
+
+<table border="1" cellpadding="5">
+    <tr>
+        <th>Field</th>
+        <th>Entered</th>
+        <th>Extracted</th>
+        <th>Status</th>
+    </tr>
+    {% for result in results %}
+    <tr>
+        <td>{{ result.field }}</td>
+        <td>{{ result.user_value }}</td>
+        <td>{{ result.extracted_value }}</td>
+        <td>{{ result.status }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h3>Overall Status: {{ overall_status }}</h3>
+
+<pre>{{ report_text }}</pre>
+{% endif %}
+
+</body>
+</html>
