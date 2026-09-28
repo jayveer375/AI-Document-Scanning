@@ -1,0 +1,453 @@
+<!-- ==============================================================
+     INVOICE & EXPENSE TRACKER - MAIN TEMPLATE MODULE
+     ============================================================== -->
+
+<div class="expense-container">
+
+    <!-- 1. UPLOAD & BATCH EXTRACTION CARD -->
+    <div class="expense-card">
+        <div class="expense-card-header">
+            <div class="expense-card-title">
+                <div class="brand-icon" style="width: 40px; height: 40px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h2>Upload Invoices</h2>
+                </div>
+            </div>
+        </div>
+
+        <form id="expenseUploadForm">
+            <!-- Dropzone for multiple files -->
+            <div id="expenseDropzone" class="dropzone" style="min-height: 100px; padding: 26px; justify-content: center; flex-direction: column;">
+                <div class="dropzone-icon" style="width: 46px; height: 46px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <div class="dropzone-text" style="text-align: center; margin-top: 6px;">
+                    <strong>Drop invoice files here or click to browse</strong>
+                    <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">PDF, JPG, PNG (Multiple files supported)</span>
+                </div>
+            </div>
+
+            <input type="file" id="expenseFileInput" name="bills" multiple style="display: none;" accept=".pdf,.jpg,.jpeg,.png,.webp">
+
+            <!-- Selected Files Queue -->
+            <div id="expenseQueueWrapper" style="display: none; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span id="queueCountBadge" class="fields-count-badge">0 Files Selected</span>
+                    <button type="button" class="btn-clear" onclick="clearExpenseQueue()">Clear All</button>
+                </div>
+                <div id="expenseQueueGrid" class="upload-queue-grid">
+                    <!-- Dynamic File Cards -->
+                </div>
+
+                <button type="submit" id="btnExtractInvoices" class="btn-submit" style="margin-top: 20px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <span>Extract Invoices</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 2. EDITABLE REVIEW & VERIFICATION SECTION (PRE-SAVE) -->
+    <div id="reviewContainer" class="expense-card review-section" style="display: none;">
+        <div class="expense-card-header">
+            <div class="expense-card-title">
+                <div class="brand-icon" style="width: 40px; height: 40px; background: var(--c-slate-green);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <polyline points="9 11 12 14 22 4"></polyline>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2>Review & Confirm</h2>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" id="btnSaveAllBills" class="btn-add" style="background: var(--c-dark-emerald); color: var(--c-alabaster);" onclick="saveAllReviewedBills()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    <span>Save All</span>
+                </button>
+                <button type="button" class="btn-clear" onclick="discardAllReviews()">Discard All</button>
+            </div>
+        </div>
+
+        <!-- Container for bill review cards -->
+        <div id="reviewBillsList" style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+
+    <!-- 3. DASHBOARD: FILTERS, KPIS & CHARTS -->
+    <div class="expense-card" style="padding: 28px;">
+        <!-- Filters Toolbar -->
+        <div class="filters-bar">
+            <div class="filter-group">
+                <span class="filter-label">Period:</span>
+                <div class="quick-date-btns">
+                    <button type="button" class="btn-chip active" onclick="setQuickDateFilter('all', this)">All Time</button>
+                    <button type="button" class="btn-chip" onclick="setQuickDateFilter('this_month', this)">This Month</button>
+                    <button type="button" class="btn-chip" onclick="setQuickDateFilter('last_month', this)">Last Month</button>
+                    <button type="button" class="btn-chip" onclick="setQuickDateFilter('this_quarter', this)">This Quarter</button>
+                    <button type="button" class="btn-chip" onclick="setQuickDateFilter('this_year', this)">This Year</button>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">From:</span>
+                <input type="date" id="filterStartDate" class="filter-input" onchange="applyFilters()">
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">To:</span>
+                <input type="date" id="filterEndDate" class="filter-input" onchange="applyFilters()">
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Category:</span>
+                <select id="filterCategory" class="filter-select" onchange="applyFilters()">
+                    <option value="all">All Categories</option>
+                    <option value="Food">Food</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Stationery">Stationery</option>
+                    <option value="Inventory">Inventory</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">Vendor:</span>
+                <select id="filterVendor" class="filter-select" onchange="applyFilters()">
+                    <option value="all">All Vendors</option>
+                    <!-- Dynamically populated -->
+                </select>
+            </div>
+
+            <button type="button" class="btn-clear" onclick="resetAllFilters()" style="margin-left: auto;">
+                Reset
+            </button>
+        </div>
+
+        <!-- KPI Cards Grid -->
+        <div class="kpi-grid" style="margin-top: 24px;">
+            <!-- KPI 1: Total Spend -->
+            <div class="kpi-card">
+                <div class="kpi-top-row">
+                    <span class="kpi-label">Total Spend</span>
+                    <div class="kpi-icon-wrap">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div id="kpiTotalSpend" class="kpi-value">₹0</div>
+                <div class="kpi-footer">
+                    <span id="kpiSpendTrendBadge" class="badge-trend flat">0%</span>
+                    <span id="kpiSpendTrendText">vs last month</span>
+                </div>
+            </div>
+
+            <!-- KPI 2: Total GST -->
+            <div class="kpi-card kpi-gst">
+                <div class="kpi-top-row">
+                    <span class="kpi-label">GST Tax</span>
+                    <div class="kpi-icon-wrap" style="color: var(--c-slate-green); background: rgba(45, 90, 74, 0.1);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <line x1="2" y1="10" x2="22" y2="10"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div id="kpiTotalGst" class="kpi-value">₹0</div>
+                <div class="kpi-footer">
+                    <span id="kpiGstTrendBadge" class="badge-trend flat">0%</span>
+                    <span>vs last month</span>
+                </div>
+            </div>
+
+            <!-- KPI 3: Bill Count -->
+            <div class="kpi-card kpi-count">
+                <div class="kpi-top-row">
+                    <span class="kpi-label">Invoices</span>
+                    <div class="kpi-icon-wrap" style="color: var(--c-moss-green); background: rgba(122, 160, 90, 0.14);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                    </div>
+                </div>
+                <div id="kpiBillCount" class="kpi-value">0</div>
+                <div class="kpi-footer">
+                    <span id="kpiCountTrendBadge" class="badge-trend flat">0%</span>
+                    <span>vs last month</span>
+                </div>
+            </div>
+
+            <!-- KPI 4: Top Vendor -->
+            <div class="kpi-card kpi-vendor">
+                <div class="kpi-top-row">
+                    <span class="kpi-label">Top Vendor</span>
+                    <div class="kpi-icon-wrap" style="color: #C29B38; background: rgba(194, 155, 56, 0.12);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                    </div>
+                </div>
+                <div id="kpiTopVendorName" class="kpi-value" style="font-size: 1.45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">None</div>
+                <div class="kpi-footer">
+                    <span id="kpiTopVendorSpend" style="font-weight: 700; color: var(--text-primary);">₹0</span>
+                    <span id="kpiTopVendorShare">(0% of spend)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 1 Charts: Monthly Spending & Trend Comparison -->
+        <div class="charts-row-grid split-2" style="margin-top: 24px;">
+            <!-- Chart 1: Monthly Spending Bar/Line Chart -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Monthly Spending & GST</h3>
+                </div>
+                <div class="chart-container-box">
+                    <canvas id="chartMonthlySpend"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Spending Trend vs Previous Month (Category / Weekly) -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Monthly Comparison</h3>
+                    <span id="trendMonthsLabel" style="font-weight: 600; color: var(--text-secondary);">By Category</span>
+                </div>
+                <div class="chart-container-box">
+                    <canvas id="chartSpendTrend"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2 Charts: Category Donut & Top Vendors Bar -->
+        <div class="charts-row-grid split-even" style="margin-top: 24px;">
+            <!-- Chart 3: Category Donut -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Spending by Category</h3>
+                </div>
+                <div class="chart-container-box">
+                    <canvas id="chartCategoryDonut"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Top Vendors Horizontal Bar -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Top Vendors</h3>
+                </div>
+                <div class="chart-container-box">
+                    <canvas id="chartTopVendors"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: GST Summary by Month & by Rate -->
+        <div class="chart-card" style="margin-top: 24px;">
+            <div class="chart-card-header">
+                <div>
+                    <h3>GST Tax by Rate Slab</h3>
+                </div>
+            </div>
+            <div class="gst-grid-layout">
+                <div class="chart-container-box">
+                    <canvas id="chartGstStacked"></canvas>
+                </div>
+                <div class="gst-table-box">
+                    <table class="gst-breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>GST Slab</th>
+                                <th>Taxable Amount</th>
+                                <th>GST Tax</th>
+                                <th>Bills</th>
+                                <th>Tax Share</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gstTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. BILLS LEDGER TABLE -->
+    <div class="expense-card">
+        <div class="ledger-actions-bar">
+            <div class="expense-card-title">
+                <h2>Invoice History</h2>
+                <span id="ledgerCountBadge" class="fields-count-badge">0 Bills</span>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div class="search-box-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="ledgerSearchInput" placeholder="Search invoices..." oninput="handleSearchDebounced(this.value)">
+                </div>
+
+                <div class="export-btns-group">
+                    <button type="button" class="btn-export" onclick="exportData('csv')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        <span>CSV</span>
+                    </button>
+                    <button type="button" class="btn-export" onclick="exportData('excel')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                        <span>Excel</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bills-table-container">
+            <table class="bills-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Vendor</th>
+                        <th>Invoice #</th>
+                        <th>Category</th>
+                        <th>Validation</th>
+                        <th>Items Summary</th>
+                        <th>Subtotal</th>
+                        <th>GST (Rate & Tax)</th>
+                        <th>Total</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="billsTableBody">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- 5. VIEW / EDIT BILL MODAL -->
+<div id="editBillModal" class="bill-modal-overlay">
+    <div class="bill-modal-card">
+        <div class="bill-modal-header">
+            <h3 id="editModalTitle">Edit Invoice</h3>
+            <button type="button" class="bill-modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form id="editBillForm" onsubmit="handleSaveEditedBill(event)">
+            <input type="hidden" id="modalBillId">
+            <div class="review-fields-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="review-field-item">
+                    <label class="review-field-label">Vendor Name</label>
+                    <input type="text" id="modalVendor" class="clean-input" required>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Invoice Number</label>
+                    <input type="text" id="modalInvoiceNo" class="clean-input" required>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Invoice Date</label>
+                    <input type="date" id="modalDate" class="clean-input" required>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Category</label>
+                    <select id="modalCategory" class="clean-select">
+                        <option value="Food">Food</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Stationery">Stationery</option>
+                        <option value="Inventory">Inventory</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Subtotal (₹)</label>
+                    <input type="number" step="0.01" id="modalSubtotal" class="clean-input" oninput="recalcModalMath()">
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">GST Rate (%)</label>
+                    <select id="modalGstRate" class="clean-select" onchange="recalcModalMath()">
+                        <option value="0">0%</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                        <option value="28">28%</option>
+                    </select>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">GST Amount (₹)</label>
+                    <input type="number" step="0.01" id="modalGstAmount" class="clean-input" oninput="recalcModalMath()">
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Total Amount (₹)</label>
+                    <input type="number" step="0.01" id="modalTotal" class="clean-input" required>
+                </div>
+            </div>
+
+            <div class="review-field-item" style="margin-top: 10px;">
+                <label class="review-field-label">Notes</label>
+                <input type="text" id="modalNotes" class="clean-input" placeholder="Optional notes or description">
+            </div>
+
+            <!-- Line Items section in modal -->
+            <div class="line-items-wrapper" style="margin-top: 16px;">
+                <div class="line-items-header">
+                    <h4>Line Items</h4>
+                    <button type="button" class="btn-chip" onclick="addModalLineItem()">+ Add Item</button>
+                </div>
+                <table class="line-items-table">
+                    <thead>
+                        <tr>
+                            <th>Item Description</th>
+                            <th style="width: 70px;">Qty</th>
+                            <th style="width: 100px;">Price (₹)</th>
+                            <th style="width: 100px;">Total (₹)</th>
+                            <th style="width: 36px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalLineItemsBody">
+                        <!-- Rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;">
+                <button type="button" class="btn-clear" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn-add" style="background: var(--c-dark-emerald); color: var(--c-alabaster);">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

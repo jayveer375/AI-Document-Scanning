@@ -1,64 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Document Verification</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuVerify - AI Document Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/expense.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-<h1>Document Verification Form</h1>
+<div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <path d="M9 15h6"></path>
+                    <path d="M9 11h6"></path>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>DocuVerify</h1>
+                <p>Verify document contents against custom dynamic fields</p>
+            </div>
+        </div>
 
-{% if error %}
-<p><strong>Error:</strong> {{ error }}</p>
-{% endif %}
+        <div class="header-actions">
+            <button type="button" id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleLuxuryTheme()" title="Switch luxury palette mode">
+                <span id="themeToggleIcon">🌿</span>
+                <span id="themeToggleLabel">Emerald Mode</span>
+            </button>
+            <div class="status-badge">
+                <span class="status-badge-dot"></span>
+                <span>Vision AI</span>
+            </div>
+        </div>
+    </header>
 
-<form action="/verify" method="post" enctype="multipart/form-data">
+    <!-- Error Alert -->
+    <div id="errorContainer" class="error-banner" style="{% if error %}display: flex;{% else %}display: none;{% endif %}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="errorMessageText">{{ error }}</span>
+    </div>
 
-    <label for="document_type">Document Type</label><br>
-    <select name="document_type" id="document_type">
-        <option value="Student ID Card">Student ID Card</option>
-    </select>
-    <br><br>
+    <!-- Main Navigation Tabs -->
+    <nav class="main-tabs-bar" role="tablist">
+        <button type="button" class="main-tab-btn active" id="tabBtnVerify" role="tab" aria-selected="true" aria-controls="tabContentVerify" onclick="switchAppTab('verify')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span>Document Verification & Matching</span>
+        </button>
 
-    {% for field in fields %}
-        <label for="{{ field }}">{{ field }}</label><br>
-        <input type="text" name="{{ field }}" id="{{ field }}"><br><br>
-    {% endfor %}
+        <button type="button" class="main-tab-btn" id="tabBtnExpense" role="tab" aria-selected="false" aria-controls="tabContentExpense" onclick="switchAppTab('expense')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+                <line x1="6" y1="15" x2="10" y2="15"></line>
+                <line x1="14" y1="15" x2="18" y2="15"></line>
+            </svg>
+            <span>Invoice & Expense Tracker</span>
+            <span class="tab-badge-new">New</span>
+        </button>
+    </nav>
 
-    <label for="document_image">Upload Image</label><br>
-    <input type="file" name="document_image" id="document_image" accept=".jpg,.jpeg,.png,.webp,.pdf"><br><br>
+    <!-- Tab 1: Document Verification & Matching -->
+    <div id="tabContentVerify" class="tab-pane active" role="tabpanel">
+        <!-- Main Form Panel -->
+        <div class="form-panel">
+        <form id="verificationForm" action="/verify" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="fields_json" id="fields_json" value="">
 
-    <button type="submit">Submit</button>
+            <!-- Document Title & File Upload Row -->
+            <div class="top-inputs-grid">
+                <div class="input-block">
+                    <label for="document_type" class="input-label">Document Type / Name</label>
+                    <input type="text" id="document_type" name="document_type" class="clean-input" value="{{ document_type or '' }}" placeholder="e.g. Bank Solvency, GST Certificate, PAN Card, Invoice..." required>
+                </div>
 
-</form>
+                <div class="input-block">
+                    <label class="input-label">Document File (PDF or Image)</label>
+                    <!-- Drag & Drop Zone -->
+                    <div id="dropzoneContainer" class="dropzone">
+                        <div class="dropzone-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <div class="dropzone-text">
+                            <strong>Choose a file</strong> or drag here (PDF or Image)
+                        </div>
+                    </div>
 
-{% if results %}
-<hr>
-<h2>Verification Report</h2>
+                    <input type="file" id="document_image" name="document_image" style="display: none;" accept=".pdf,.jpg,.jpeg,.png,.webp">
 
-<p>Document Type: {{ document_type }}</p>
+                    <!-- Selected & Approved File Card -->
+                    <div id="selectedFileCard" class="selected-file-box">
+                        <div class="selected-file-left">
+                            <div id="selectedFileThumb" class="selected-file-thumb"></div>
+                            <div class="selected-file-meta">
+                                <div id="selectedFileName" class="selected-filename">document.pdf</div>
+                                <div class="selected-file-sub">
+                                    <span id="selectedFileSize" class="selected-filesize">0 KB</span>
+                                    <span class="file-approved-badge">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                        File Approved
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="selected-file-actions">
+                            <button type="button" id="previewFileBtn" class="btn-file-action" title="Preview document">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <span>Preview</span>
+                            </button>
+                            <button type="button" id="removeFileBtn" class="btn-file-action danger" title="Remove or change file">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                <span>Remove</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<table border="1" cellpadding="5">
-    <tr>
-        <th>Field</th>
-        <th>Entered</th>
-        <th>Extracted</th>
-        <th>Status</th>
-    </tr>
-    {% for result in results %}
-    <tr>
-        <td>{{ result.field }}</td>
-        <td>{{ result.user_value }}</td>
-        <td>{{ result.extracted_value }}</td>
-        <td>{{ result.status }}</td>
-    </tr>
-    {% endfor %}
-</table>
+            <div class="section-divider"></div>
 
-<h3>Overall Status: {{ overall_status }}</h3>
+            <!-- Dynamic Verification Fields -->
+            <div class="fields-header-row">
+                <div class="fields-title-wrap">
+                    <h2>Fields to Verify</h2>
+                    <p class="fields-subtitle">Enter field names and expected values to match against the approved file</p>
+                </div>
+                <span id="fieldsCountBadge" class="fields-count-badge">0 Fields</span>
+            </div>
 
-<pre>{{ report_text }}</pre>
-{% endif %}
+            <!-- Column Headings -->
+            <div class="fields-table-head">
+                <div>FIELD NAME</div>
+                <div>EXPECTED VALUE</div>
+                <div>MATCHING RULE</div>
+                <div></div>
+            </div>
+
+            <!-- Fields Rows Container -->
+            <div id="fieldsContainer" class="fields-list">
+                <!-- Dynamically generated rows -->
+            </div>
+
+            <!-- Field Toolbar -->
+            <div class="fields-toolbar">
+                <div class="toolbar-left">
+                    <button type="button" class="btn-add" onclick="addField()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Add Field</span>
+                    </button>
+
+                    <button type="button" class="btn-clear" onclick="clearAllFields()">
+                        Clear all fields
+                    </button>
+                </div>
+
+                <div class="toolbar-right">
+                    <div class="quick-preset-wrap">
+                        <label for="quickPresetSelect" class="quick-preset-label">Autofill Sample (Optional):</label>
+                        <select id="quickPresetSelect" class="quick-preset-select" onchange="handlePresetSelect(this.value)">
+                            <option value="">-- Select Template --</option>
+                            <option value="bank_solvency">Bank Solvency Certificate</option>
+                            <option value="gst_certificate">GST Certificate</option>
+                            <option value="pan_card">PAN Card</option>
+                            <option value="turnover_certificate">Turnover Certificate</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit CTA -->
+            <button type="submit" id="submitBtn" class="btn-submit">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span>Verify & Match Result</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsContainer">
+        {% if results %}
+        <div class="results-area">
+            <div class="verdict-banner {{ summary.overall_status | lower }}">
+                <div class="verdict-title {{ summary.overall_status | lower }}">
+                    <span>
+                        {% if summary.overall_status == 'PASS' %}✓ Document Verified Successfully
+                        {% elif summary.overall_status == 'PARTIAL' %}⚠ Partially Verified (Optional Mismatches)
+                        {% else %}✕ Verification Failed{% endif %}
+                    </span>
+                </div>
+                <div class="verdict-score">
+                    {{ summary.passed_count }}/{{ summary.total_fields }} Passed ({{ summary.match_percentage }}%)
+                </div>
+            </div>
+
+            <div class="results-grid-box">
+                {% if preview_url %}
+                <div class="results-preview-card">
+                    <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 12px;">Document Preview</div>
+                    <div class="preview-thumb" onclick="openZoomModal('{{ preview_url }}')">
+                        <img src="{{ preview_url }}" alt="Uploaded Document">
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="results-table-card">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Expected</th>
+                                <th>Extracted</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in results %}
+                            <tr>
+                                <td>
+                                    <div class="field-name-cell">{{ r.field }}</div>
+                                    <span class="field-constraint-tag">{{ r.constraint_label }}</span>
+                                </td>
+                                <td class="val-cell">{{ r.user_value }}</td>
+                                <td class="val-cell {% if r.status == 'PASS' %}extracted-pass{% else %}extracted-fail{% endif %}">
+                                    {{ r.extracted_value }}
+                                </td>
+                                <td>
+                                    <span class="status-chip {{ r.status | lower }}">{{ r.status }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="results-btn-bar">
+                <button type="button" class="btn-secondary" onclick="window.print()">Print / Save PDF</button>
+                <a href="/download/report" class="btn-secondary">Download Report (.txt)</a>
+                <a href="/download/json" class="btn-secondary">Export JSON</a>
+            </div>
+            {% endif %}
+        </div>
+    <!-- End Tab 1: tabContentVerify -->
+    </div>
+
+    <!-- Tab 2: Invoice & Expense Tracker -->
+    <div id="tabContentExpense" class="tab-pane" role="tabpanel" style="display: none;">
+        {% include 'expense_tracker.html' %}
+    </div>
+</div>
+
+<!-- Simple Loading Modal -->
+<div id="scanOverlay" class="modal-overlay">
+    <div class="modal-card">
+        <div class="spinner"></div>
+        <div class="modal-title">Analyzing Document</div>
+        <div id="scanStepTicker" class="modal-subtitle">Extracting fields with Vision AI...</div>
+    </div>
+</div>
+
+<!-- Image Zoom Modal -->
+<div id="zoomModal" class="zoom-modal">
+    <button type="button" id="zoomModalClose" class="zoom-close">&times;</button>
+    <img id="zoomModalImg" src="" alt="Enlarged Document">
+</div>
+
+<!-- Presets & State -->
+<script>
+    window.PRESET_DATA = {{ presets | tojson | safe if presets else '{}' }};
+    window.INITIAL_FIELDS = {{ active_fields | tojson | safe if active_fields else '[]' }};
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/expense.js') }}"></script>
 
 </body>
 </html>
