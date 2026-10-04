@@ -8,6 +8,12 @@ let queuedFiles = [];
 let reviewedBillsState = [];
 let chartInstances = {};
 let searchDebounceTimer = null;
+let cachedProfile = null;
+let cachedCategories = [
+    "Food", "Pins", "Fees", "Rent", "Travel Expenses",
+    "Customer Account Expense", "Stock Expense", "Utilities", "Stationery", "Other"
+];
+let selectedCategoryFilter = "all";
 
 // Currency Formatter for Indian Rupee System (e.g. ₹1,25,000)
 function formatINR(val) {
@@ -33,8 +39,399 @@ function escapeHtml(str) {
 document.addEventListener("DOMContentLoaded", () => {
     setupExpenseDropzone();
     setupExpenseUploadForm();
+    loadBusinessProfile();
     loadDashboardData();
+    updateTallyFormatUI();
 });
+
+// --------------------------------------------------
+// 0. BUSINESS PROFILE & CUSTOM CATEGORY MANAGEMENT
+// --------------------------------------------------
+
+async function loadBusinessProfile() {
+    try {
+        const res = await fetch("/api/expense/profile");
+        const data = await res.json();
+        if (res.ok && data.success) {
+            cachedProfile = data.profile;
+            if (data.categories && data.categories.length > 0) {
+                cachedCategories = data.categories;
+            }
+            updateBusinessBannerUI(cachedProfile);
+            renderCategoryChips(cachedCategories);
+            renderCategoryFilterOptions(cachedCategories);
+        }
+    } catch (err) {
+        console.error("Failed to load business profile:", err);
+    }
+}
+
+function updateBusinessBannerUI(prof) {
+    if (!prof) return;
+    const nameEl = document.getElementById("bannerBusinessName");
+    const ownerEl = document.getElementById("bannerOwnerName");
+    const gstinEl = document.getElementById("bannerGstinBadge");
+    const contactEl = document.getElementById("bannerContactInfo");
+
+    if (nameEl) nameEl.textContent = prof.business_name || "R K Construction";
+    if (ownerEl) ownerEl.textContent = prof.owner_name || "Primary Vendor";
+    if (gstinEl) {
+        gstinEl.textContent = prof.gstin ? `GSTIN: ${prof.gstin}` : "GST: N/A";
+    }
+    if (contactEl) {
+        contactEl.textContent = prof.phone || prof.email || "Central Expense Management";
+    }
+}
+
+function renderCategoryChips(categories) {
+    const list = document.getElementById("vendorCategoriesList");
+    const badge = document.getElementById("categoryCountBadge");
+    if (!list) return;
+
+    if (badge) {
+        badge.textContent = `${categories.length} Categories`;
+    }
+
+    list.innerHTML = categories.map(cat => {
+        const isSelected = selectedCategoryFilter.toLowerCase() === cat.toLowerCase();
+        return `
+            <div class="vendor-cat-pill ${isSelected ? 'active-filter' : ''}" onclick="toggleCategoryFilter('${escapeHtml(cat)}')">
+                <span>${escapeHtml(cat)}</span>
+                <button type="button" class="btn-del-cat" onclick="event.stopPropagation(); handleDeleteCategory('${escapeHtml(cat)}')" title="Delete ${escapeHtml(cat)} category">&times;</button>
+            </div>
+        `;
+    }).join("");
+}
+
+function toggleCategoryFilter(catName) {
+    const filterSelect = document.getElementById("filterCategory");
+    if (!filterSelect) return;
+
+    if (selectedCategoryFilter.toLowerCase() === catName.toLowerCase()) {
+        selectedCategoryFilter = "all";
+        filterSelect.value = "all";
+    } else {
+        selectedCategoryFilter = catName;
+        filterSelect.value = catName;
+    }
+
+    renderCategoryChips(cachedCategories);
+    applyFilters();
+}
+
+async function handleQuickAddCategory(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById("newCategoryInput");
+    if (!input) return;
+    const catName = input.value.trim();
+    if (!catName) return;
+
+    try {
+        const res = await fetch("/api/expense/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: catName }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            input.value = "";
+            cachedCategories = data.categories;
+            renderCategoryChips(cachedCategories);
+            renderCategoryFilterOptions(cachedCategories);
+            loadDashboardData();
+            if (data.message) {
+                showToast(data.message, "success");
+            }
+        } else {
+            alert(data.error || "Could not add category");
+        }
+    } catch (err) {
+        console.error("Error adding category:", err);
+    }
+}
+
+async function handleDeleteCategory(catName) {
+    if (!confirm(`Are you sure you want to remove '${catName}'? Existing expenses under this category will be grouped into 'Other'.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/expense/categories/${encodeURIComponent(catName)}`, {
+            method: "DELETE",
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            cachedCategories = data.categories;
+            if (selectedCategoryFilter.toLowerCase() === catName.toLowerCase()) {
+                selectedCategoryFilter = "all";
+            }
+            renderCategoryChips(cachedCategories);
+            renderCategoryFilterOptions(cachedCategories);
+            loadDashboardData();
+        } else {
+            alert(data.error || "Could not delete category");
+        }
+    } catch (err) {
+        console.error("Error deleting category:", err);
+    }
+}
+
+function renderCategoryFilterOptions(categories) {
+    const sel = document.getElementById("filterCategory");
+    if (!sel) return;
+    const currentVal = sel.value;
+
+    sel.innerHTML = `<option value="all">All Categories</option>`;
+    (categories || cachedCategories || []).forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        if (c.toLowerCase() === currentVal.toLowerCase() || c.toLowerCase() === selectedCategoryFilter.toLowerCase()) {
+            opt.selected = true;
+        }
+        sel.appendChild(opt);
+    });
+}
+
+function canonicalizeCategoryJs(rawCat) {
+    if (!rawCat) return "Other";
+    const s = String(rawCat).trim().toLowerCase();
+    if (!s || s === "null" || s === "none" || s === "undefined") return "Other";
+
+    // 1. Exact match against cached categories
+    for (const c of cachedCategories) {
+        if (c.toLowerCase() === s) return c;
+    }
+
+    // 2. Travel & conveyance variations
+    if (s.includes("travel") || s.includes("conveyance") || s.includes("cab") || s.includes("flight") || s.includes("uber") || s.includes("taxi")) {
+        const travelCat = cachedCategories.find(c => c.toLowerCase() === "travel expenses");
+        return travelCat || "Travel Expenses";
+    }
+
+    // 3. Rent variations
+    if (s.includes("rent") || s.includes("lease")) {
+        const rentCat = cachedCategories.find(c => c.toLowerCase() === "rent");
+        return rentCat || "Rent";
+    }
+
+    // 4. Utilities
+    if (s.includes("utilit") || s.includes("electric") || s.includes("power") || s.includes("broadband") || s.includes("water bill")) {
+        const utilCat = cachedCategories.find(c => c.toLowerCase() === "utilities");
+        return utilCat || "Utilities";
+    }
+
+    // 5. Food
+    if (s.includes("food") || s.includes("dining") || s.includes("restaurant") || s.includes("cafe") || s.includes("meal")) {
+        const foodCat = cachedCategories.find(c => c.toLowerCase() === "food");
+        return foodCat || "Food";
+    }
+
+    // 6. Stationery
+    if (s.includes("station") || s.includes("paper") || s.includes("printing")) {
+        const statCat = cachedCategories.find(c => c.toLowerCase() === "stationery");
+        return statCat || "Stationery";
+    }
+
+    // 7. Pins
+    if (s.includes("pin") || s.includes("clip") || s.includes("staple")) {
+        const pinCat = cachedCategories.find(c => c.toLowerCase() === "pins");
+        return pinCat || "Pins";
+    }
+
+    // 8. Fees
+    if (s.includes("fee") || s.includes("audit") || s.includes("consult")) {
+        const feeCat = cachedCategories.find(c => c.toLowerCase() === "fees");
+        return feeCat || "Fees";
+    }
+
+    // 9. Customer Account Expense
+    if (s.includes("customer") || s.includes("client")) {
+        const custCat = cachedCategories.find(c => c.toLowerCase() === "customer account expense");
+        return custCat || "Customer Account Expense";
+    }
+
+    // 10. Stock Expense
+    if (s.includes("stock") || s.includes("inventory") || s.includes("raw material")) {
+        const stockCat = cachedCategories.find(c => c.toLowerCase() === "stock expense");
+        return stockCat || "Stock Expense";
+    }
+
+    return "Other";
+}
+
+function renderCategoryOptionsHtml(selectedCat) {
+    const canonicalSelected = canonicalizeCategoryJs(selectedCat || "Other");
+    const cats = [...cachedCategories];
+    if (canonicalSelected && !cats.some(c => c.toLowerCase() === canonicalSelected.toLowerCase())) {
+        cats.push(canonicalSelected);
+    }
+    return cats.map(c => `
+        <option value="${escapeHtml(c)}" ${canonicalSelected && canonicalSelected.toLowerCase() === c.toLowerCase() ? 'selected' : ''}>
+            ${escapeHtml(c)}
+        </option>
+    `).join("");
+}
+
+// Notification Toast Helper
+function showToast(message, type = "success") {
+    let container = document.getElementById("toastContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toastContainer";
+        container.style.cssText = `
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        `;
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    const bg = type === "error" ? "#B85D38" : "#0D4C3C";
+    toast.style.cssText = `
+        background: ${bg};
+        color: #F8FAF8;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-family: var(--font-sans);
+        font-size: 0.92rem;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        pointer-events: auto;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    toast.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            ${type === "error"
+                ? '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>'
+                : '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>'}
+        </svg>
+        <span>${escapeHtml(message)}</span>
+    `;
+
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+    });
+
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(12px)";
+        setTimeout(() => toast.remove(), 250);
+    }, 3500);
+}
+
+// Business Details Modal Handlers
+async function openBusinessProfileModal() {
+    const modal = document.getElementById("businessProfileModal");
+    if (!modal) return;
+
+    // Fetch latest profile if not already cached
+    if (!cachedProfile) {
+        try {
+            const res = await fetch("/api/expense/profile");
+            const data = await res.json();
+            if (res.ok && data.success) {
+                cachedProfile = data.profile;
+            }
+        } catch (e) {
+            console.warn("Could not fetch profile ahead of modal open:", e);
+        }
+    }
+
+    const nameInput = document.getElementById("profModalBusinessName");
+    const ownerInput = document.getElementById("profModalOwnerName");
+    const gstinInput = document.getElementById("profModalGstin");
+    const phoneInput = document.getElementById("profModalPhone");
+    const emailInput = document.getElementById("profModalEmail");
+    const addrInput = document.getElementById("profModalAddress");
+
+    const fallbackName = document.getElementById("bannerBusinessName")?.textContent.trim() || "";
+    const fallbackOwner = document.getElementById("bannerOwnerName")?.textContent.trim() || "";
+    const fallbackGstin = (document.getElementById("bannerGstinBadge")?.textContent || "").replace("GSTIN:", "").trim();
+
+    if (nameInput) nameInput.value = cachedProfile?.business_name || fallbackName || "Precision Engineering & Construction";
+    if (ownerInput) ownerInput.value = cachedProfile?.owner_name || fallbackOwner || "Kalpesh Shah";
+    if (gstinInput) gstinInput.value = cachedProfile?.gstin || (fallbackGstin !== "GST: N/A" ? fallbackGstin : "");
+    if (phoneInput) phoneInput.value = cachedProfile?.phone || "";
+    if (emailInput) emailInput.value = cachedProfile?.email || "";
+    if (addrInput) addrInput.value = cachedProfile?.address || "";
+
+    modal.classList.add("active");
+
+    // Close on overlay backdrop click
+    modal.onclick = (e) => {
+        if (e.target === modal) closeBusinessProfileModal();
+    };
+}
+
+function closeBusinessProfileModal() {
+    const modal = document.getElementById("businessProfileModal");
+    if (modal) modal.classList.remove("active");
+}
+
+async function handleSaveBusinessProfile(event) {
+    if (event) event.preventDefault();
+
+    const submitBtn = document.querySelector("#businessProfileForm button[type='submit']");
+    const origText = submitBtn ? submitBtn.innerHTML : "Save Details";
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = "<span>Saving...</span>";
+    }
+
+    const payload = {
+        business_name: document.getElementById("profModalBusinessName")?.value.trim() || "",
+        owner_name: document.getElementById("profModalOwnerName")?.value.trim() || "",
+        gstin: document.getElementById("profModalGstin")?.value.trim().toUpperCase() || "",
+        phone: document.getElementById("profModalPhone")?.value.trim() || "",
+        email: document.getElementById("profModalEmail")?.value.trim() || "",
+        address: document.getElementById("profModalAddress")?.value.trim() || "",
+    };
+
+    try {
+        const res = await fetch("/api/expense/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            cachedProfile = data.profile;
+            if (data.categories && data.categories.length > 0) {
+                cachedCategories = data.categories;
+                renderCategoryChips(cachedCategories);
+                renderCategoryFilterOptions(cachedCategories);
+            }
+            updateBusinessBannerUI(cachedProfile);
+            closeBusinessProfileModal();
+            loadDashboardData();
+            showToast("Business details updated successfully!");
+        } else {
+            alert(data.error || "Failed to update profile.");
+        }
+    } catch (err) {
+        console.error("Error saving business profile:", err);
+        alert("Failed to save business details: " + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origText;
+        }
+    }
+}
 
 // --------------------------------------------------
 // 1. MULTI-FILE QUEUE & UPLOAD SETUP
@@ -157,11 +554,9 @@ function renderQueueGrid() {
 
 function setupExpenseUploadForm() {
     const form = document.getElementById("expenseUploadForm");
-    const modal = document.getElementById("scanOverlay");
-    const ticker = document.getElementById("scanStepTicker");
     if (!form) return;
 
-    form.addEventListener("submit", async (e) => {
+    form.addEventListener("submit", (e) => {
         e.preventDefault();
         hideError();
 
@@ -170,45 +565,95 @@ function setupExpenseUploadForm() {
             return;
         }
 
-        // Show loading overlay
-        if (modal) {
-            modal.classList.add("active");
-            if (ticker) ticker.textContent = `Extracting ${queuedFiles.length} ${queuedFiles.length === 1 ? 'invoice' : 'invoices'} with Mistral Vision AI...`;
-        }
+        // Ask the user to confirm/choose target Tally format before converting
+        openFormatConfirmModal();
+    });
+}
 
-        const formData = new FormData();
-        queuedFiles.forEach(file => {
-            formData.append("bills", file);
-        });
+function openFormatConfirmModal() {
+    const modal = document.getElementById("formatConfirmModal");
+    if (!modal) {
+        executeBatchExtraction();
+        return;
+    }
+    setModalFormat(selectedTallyFormat);
+    modal.classList.add("active");
+}
 
-        try {
-            const res = await fetch("/api/expense/extract", {
-                method: "POST",
-                body: formData,
-            });
+function closeFormatConfirmModal() {
+    const modal = document.getElementById("formatConfirmModal");
+    if (modal) modal.classList.remove("active");
+}
 
-            if (modal) modal.classList.remove("active");
-            const data = await res.json();
-
-            if (!res.ok || !data.success) {
-                showError(data.error || "Invoice extraction failed.");
-                return;
+function setModalFormat(fmt) {
+    if (!["xml", "excel", "csv"].includes(fmt)) fmt = "xml";
+    selectedTallyFormat = fmt;
+    ["xml", "excel", "csv"].forEach(f => {
+        const card = document.getElementById(`modalOptCard${f.charAt(0).toUpperCase() + f.slice(1)}`);
+        const radio = document.getElementById(`modalRadio${f.charAt(0).toUpperCase() + f.slice(1)}`);
+        if (card) {
+            if (f === fmt) {
+                card.classList.add("selected");
+                if (radio) radio.checked = true;
+            } else {
+                card.classList.remove("selected");
+                if (radio) radio.checked = false;
             }
-
-            // Append or load bills for review
-            reviewedBillsState = data.bills || [];
-            clearExpenseQueue();
-            renderReviewSection();
-
-            // Scroll to review section
-            const reviewSec = document.getElementById("reviewContainer");
-            if (reviewSec) reviewSec.scrollIntoView({ behavior: "smooth" });
-
-        } catch (err) {
-            if (modal) modal.classList.remove("active");
-            showError("Network error during extraction: " + err.message);
         }
     });
+}
+
+function confirmAndExecuteExtraction() {
+    closeFormatConfirmModal();
+    selectTallyConversionFormat(selectedTallyFormat, true);
+    executeBatchExtraction();
+}
+
+async function executeBatchExtraction() {
+    const modal = document.getElementById("scanOverlay");
+    const ticker = document.getElementById("scanStepTicker");
+
+    // Show loading overlay
+    if (modal) {
+        modal.classList.add("active");
+        if (ticker) {
+            const fmtName = selectedTallyFormat.toUpperCase();
+            ticker.textContent = `Extracting ${queuedFiles.length} ${queuedFiles.length === 1 ? 'invoice' : 'invoices'} to Tally ${fmtName}...`;
+        }
+    }
+
+    const formData = new FormData();
+    queuedFiles.forEach(file => {
+        formData.append("bills", file);
+    });
+
+    try {
+        const res = await fetch("/api/expense/extract", {
+            method: "POST",
+            body: formData,
+        });
+
+        if (modal) modal.classList.remove("active");
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            showError(data.error || "Invoice extraction failed.");
+            return;
+        }
+
+        // Append or load bills for review
+        reviewedBillsState = data.bills || [];
+        clearExpenseQueue();
+        renderReviewSection();
+
+        // Scroll to review section
+        const reviewSec = document.getElementById("reviewContainer");
+        if (reviewSec) reviewSec.scrollIntoView({ behavior: "smooth" });
+
+    } catch (err) {
+        if (modal) modal.classList.remove("active");
+        showError("Network error during extraction: " + err.message);
+    }
 }
 
 // --------------------------------------------------
@@ -362,14 +807,9 @@ function renderReviewSection() {
                 </div>
 
                 <div class="review-field-item">
-                    <label class="review-field-label">Category (AI Inferred)</label>
+                    <label class="review-field-label">Category</label>
                     <select class="clean-select" onchange="updateReviewField(${bIdx}, 'category', this.value)">
-                        <option value="Food" ${bill.category === 'Food' ? 'selected' : ''}>Food</option>
-                        <option value="Travel" ${bill.category === 'Travel' ? 'selected' : ''}>Travel</option>
-                        <option value="Utilities" ${bill.category === 'Utilities' ? 'selected' : ''}>Utilities</option>
-                        <option value="Stationery" ${bill.category === 'Stationery' ? 'selected' : ''}>Stationery</option>
-                        <option value="Inventory" ${bill.category === 'Inventory' ? 'selected' : ''}>Inventory</option>
-                        <option value="Other" ${bill.category === 'Other' ? 'selected' : ''}>Other</option>
+                        ${renderCategoryOptionsHtml(bill.category)}
                     </select>
                 </div>
 
@@ -700,15 +1140,13 @@ async function saveAllReviewedBills() {
 async function loadDashboardData() {
     const sDate = document.getElementById("filterStartDate")?.value || "";
     const eDate = document.getElementById("filterEndDate")?.value || "";
-    const cat = document.getElementById("filterCategory")?.value || "all";
-    const ven = document.getElementById("filterVendor")?.value || "all";
+    const cat = document.getElementById("filterCategory")?.value || selectedCategoryFilter || "all";
     const srch = document.getElementById("ledgerSearchInput")?.value || "";
 
     const params = new URLSearchParams({
         start_date: sDate,
         end_date: eDate,
         category: cat,
-        vendor: ven,
         search: srch,
     });
 
@@ -720,8 +1158,18 @@ async function loadDashboardData() {
             return;
         }
 
+        if (data.business_profile) {
+            cachedProfile = data.business_profile;
+            updateBusinessBannerUI(cachedProfile);
+        }
+
+        if (data.filter_options && data.filter_options.categories) {
+            cachedCategories = data.filter_options.categories;
+            renderCategoryChips(cachedCategories);
+            renderCategoryFilterOptions(cachedCategories);
+        }
+
         renderKPICards(data.kpis);
-        renderVendorFilterOptions(data.filter_options.vendors);
         renderCharts(data.charts);
         renderGSTTable(data.charts.gst_summary.table);
         renderBillsTable(data.bills);
@@ -767,28 +1215,14 @@ function renderKPICards(kpis) {
         countBadge.textContent = `${arrow}${kpis.count_change.pct}%`;
     }
 
-    // 4. Top Vendor
-    const topVenName = document.getElementById("kpiTopVendorName");
-    const topVenSpend = document.getElementById("kpiTopVendorSpend");
-    const topVenShare = document.getElementById("kpiTopVendorShare");
-    if (topVenName) topVenName.textContent = kpis.top_vendor.name || "None";
-    if (topVenSpend) topVenSpend.textContent = formatINR(kpis.top_vendor.spend);
-    if (topVenShare) topVenShare.textContent = `(${kpis.top_vendor.share_pct}% of spend)`;
-}
-
-function renderVendorFilterOptions(vendors) {
-    const sel = document.getElementById("filterVendor");
-    if (!sel) return;
-    const currentVal = sel.value;
-
-    sel.innerHTML = `<option value="all">All Vendors</option>`;
-    (vendors || []).forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v;
-        opt.textContent = v;
-        if (v === currentVal) opt.selected = true;
-        sel.appendChild(opt);
-    });
+    // 4. Top Expense Category (Replaces Top Vendor)
+    const topCatName = document.getElementById("kpiTopCategoryName") || document.getElementById("kpiTopVendorName");
+    const topCatSpend = document.getElementById("kpiTopCategorySpend") || document.getElementById("kpiTopVendorSpend");
+    const topCatShare = document.getElementById("kpiTopCategoryShare") || document.getElementById("kpiTopVendorShare");
+    const topData = kpis.top_category || kpis.top_vendor || { name: "None", spend: 0, share_pct: 0 };
+    if (topCatName) topCatName.textContent = topData.name || "None";
+    if (topCatSpend) topCatSpend.textContent = formatINR(topData.spend);
+    if (topCatShare) topCatShare.textContent = `(${topData.share_pct}% of spend)`;
 }
 
 function renderCharts(chartsData) {
@@ -797,22 +1231,23 @@ function renderCharts(chartsData) {
         return;
     }
 
+    window.currentChartsData = chartsData;
     const isDark = document.documentElement.getAttribute("data-theme") === "dark-emerald";
-    const textPrimaryColor = isDark ? "#F4F1EB" : "#0D261F";
-    const textMutedColor = isDark ? "#82A396" : "#627F75";
-    const gridLineColor = isDark ? "rgba(244, 241, 235, 0.08)" : "rgba(45, 90, 74, 0.1)";
+    const textPrimaryColor = isDark ? "#F5E6C5" : "#0D261F";
+    const textMutedColor = isDark ? "#9F886F" : "#627F75";
+    const gridLineColor = isDark ? "rgba(245, 230, 197, 0.08)" : "rgba(45, 90, 74, 0.1)";
 
     Chart.defaults.color = textMutedColor;
     Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
     Chart.defaults.font.size = 13;
 
-    // Palette Colors
-    const cDarkEmerald = isDark ? "#7AA05A" : "#0D4C3C";
-    const cSlateGreen = isDark ? "#5C8C70" : "#2D5A4A";
-    const cMossGreen = "#7AA05A";
-    const cAmber = "#C29B38";
-    const cTerracotta = "#B85D38";
-    const cSage = "#94B49F";
+    // Palette Colors (Light Emerald ⇄ Luxury Organic & Apricot)
+    const cDarkEmerald = isDark ? "#D78B30" : "#0D4C3C";
+    const cSlateGreen = isDark ? "#9F886F" : "#2D5A4A";
+    const cMossGreen = isDark ? "#3F422E" : "#7AA05A";
+    const cAmber = "#D78B30";
+    const cTerracotta = isDark ? "#E06D53" : "#B85D38";
+    const cSage = isDark ? "#9F886F" : "#94B49F";
 
     // 1. Monthly Spending Line/Bar Chart
     const ctxMonthly = document.getElementById("chartMonthlySpend")?.getContext("2d");
@@ -993,21 +1428,45 @@ function renderCharts(chartsData) {
         });
     }
 
-    // 4. Top Vendors Horizontal Bar Chart
-    const ctxVendors = document.getElementById("chartTopVendors")?.getContext("2d");
-    if (ctxVendors && chartsData.top_vendors) {
+    // 4. Category Expense Breakdown Horizontal Bar Chart (Ranked by Spend)
+    const breakdownCanvas = document.getElementById("chartCategoryBreakdown") || document.getElementById("chartTopVendors");
+    const ctxCatBreakdown = breakdownCanvas?.getContext("2d");
+    const catBreakdownData = chartsData.category_breakdown || chartsData.top_vendors;
+
+    if (ctxCatBreakdown && catBreakdownData) {
+        if (chartInstances.breakdown) chartInstances.breakdown.destroy();
         if (chartInstances.vendors) chartInstances.vendors.destroy();
 
-        chartInstances.vendors = new Chart(ctxVendors, {
+        const barColors = [
+            cDarkEmerald,
+            cMossGreen,
+            cSlateGreen,
+            cAmber,
+            cTerracotta,
+            cSage,
+            "rgba(45, 90, 74, 0.8)",
+            "rgba(122, 160, 90, 0.8)",
+            "rgba(212, 163, 115, 0.8)",
+            "rgba(224, 122, 95, 0.8)",
+        ];
+
+        const rawLabels = catBreakdownData.labels || [];
+        const rawVals = catBreakdownData.values || [];
+
+        // If no data, populate with default categories at 0 spend so the chart axes and grid are cleanly visible
+        const finalLabels = rawLabels.length > 0 ? rawLabels : (cachedCategories || []).slice(0, 8);
+        const finalVals = rawLabels.length > 0 ? rawVals : new Array(finalLabels.length).fill(0);
+
+        chartInstances.breakdown = new Chart(ctxCatBreakdown, {
             type: "bar",
             data: {
-                labels: chartsData.top_vendors.labels,
+                labels: finalLabels,
                 datasets: [{
                     label: "Spend Amount",
-                    data: chartsData.top_vendors.values,
-                    backgroundColor: cSlateGreen,
-                    borderRadius: 5,
-                    barPercentage: 0.6,
+                    data: finalVals,
+                    backgroundColor: finalLabels.map((_, i) => barColors[i % barColors.length]),
+                    borderRadius: 6,
+                    barPercentage: 0.65,
                 }]
             },
             options: {
@@ -1115,7 +1574,7 @@ function renderGSTTable(tableData) {
         <tr>
             <td style="font-weight: 700;">${escapeHtml(row.label)}</td>
             <td>${formatINR(row.subtotal)}</td>
-            <td style="font-weight: 700; color: var(--c-dark-emerald);">${formatINR(row.gst_collected)}</td>
+            <td style="font-weight: 700; color: var(--brand-primary);">${formatINR(row.gst_collected)}</td>
             <td>${row.count}</td>
             <td>${row.share_pct}%</td>
         </tr>
@@ -1128,6 +1587,7 @@ function renderGSTTable(tableData) {
 
 function renderBillsTable(bills) {
     const tbody = document.getElementById("billsTableBody");
+    const tfoot = document.getElementById("billsTableFoot");
     const countBadge = document.getElementById("ledgerCountBadge");
     if (!tbody) return;
 
@@ -1138,51 +1598,73 @@ function renderBillsTable(bills) {
     if (!bills || bills.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="10" style="text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 0.95rem;">
-                    No invoices found matching your filters.
+                <td colspan="12" style="text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 0.95rem;">
+                    No vouchers found matching your filters.
                 </td>
             </tr>
         `;
+        if (tfoot) tfoot.innerHTML = "";
         return;
     }
 
+    let sumSub = 0;
+    let sumCgst = 0;
+    let sumSgst = 0;
+    let sumIgst = 0;
+    let sumTotal = 0;
+
     tbody.innerHTML = bills.map(b => {
         const catClass = (b.category || "other").toLowerCase();
-        const itemsSummary = (b.line_items || []).map(it => it.name).slice(0, 3).join(", ");
-        const moreCount = (b.line_items || []).length > 3 ? ` +${b.line_items.length - 3} more` : "";
+        const expenseLedger = `${b.category || 'Other'} Expenses`;
 
-        // Validation status
         const sub = parseFloat(b.subtotal || 0);
-        const gst = parseFloat(b.gst_amount || 0);
+        let cgst = parseFloat(b.cgst_amount || 0);
+        let sgst = parseFloat(b.sgst_amount || 0);
+        let igst = parseFloat(b.igst_amount || 0);
+        const gstTot = parseFloat(b.gst_amount || 0);
+
+        // If cgst/sgst/igst not split individually but total GST exists
+        if (cgst === 0 && sgst === 0 && igst === 0 && gstTot > 0) {
+            cgst = parseFloat((gstTot / 2).toFixed(2));
+            sgst = parseFloat((gstTot - cgst).toFixed(2));
+        }
+
         const tot = parseFloat(b.total || 0);
-        const diff = Math.abs((sub + gst) - tot);
+        const debits = parseFloat((sub + cgst + sgst + igst).toFixed(2));
+        const diff = Math.abs(debits - tot);
         const valStatus = b.validation_status || (diff <= 0.05 ? "OK" : "Needs review");
         const valClass = valStatus === "OK" ? "ok" : "needs-review";
 
+        sumSub += sub;
+        sumCgst += cgst;
+        sumSgst += sgst;
+        sumIgst += igst;
+        sumTotal += tot;
+
         return `
             <tr>
-                <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 0.9rem;">${escapeHtml(b.date)}</td>
-                <td style="font-weight: 700; font-size: 1rem;">${escapeHtml(b.vendor)}</td>
-                <td style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted);">${escapeHtml(b.invoice_no)}</td>
-                <td><span class="category-chip ${catClass}">${escapeHtml(b.category)}</span></td>
-                <td><span class="badge-status-pill ${valClass}" title="${escapeHtml(b.validation_notes || '')}">${escapeHtml(valStatus)}</span></td>
-                <td style="color: var(--text-secondary); max-width: 260px; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(itemsSummary)}">
-                    ${escapeHtml(itemsSummary || 'General Expense')}${moreCount}
-                </td>
-                <td style="font-family: var(--font-mono); font-size: 0.95rem;">${formatINR(b.subtotal)}</td>
-                <td style="font-family: var(--font-mono); font-size: 0.95rem;">${b.gst_rate}% (${formatINR(b.gst_amount)})</td>
-                <td style="font-family: var(--font-mono); font-weight: 800; color: var(--text-primary); font-size: 1.08rem;">${formatINR(b.total)}</td>
-                <td>
-                    <div class="table-action-btns">
-                        <button type="button" class="btn-tbl-action" onclick="openEditModal(${b.id})" title="View / Edit Invoice">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 0.88rem;">${escapeHtml(b.date || '')}</td>
+                <td><span class="tally-vch-badge">Purchase</span></td>
+                <td style="font-family: var(--font-mono); font-size: 0.88rem; font-weight: 700; color: var(--text-secondary);">${escapeHtml(b.invoice_no || 'N/A')}</td>
+                <td style="font-weight: 700; font-size: 0.94rem;">${escapeHtml(b.vendor || 'Unknown Vendor')}</td>
+                <td><span class="category-chip ${catClass}">${escapeHtml(expenseLedger)}</span></td>
+                <td style="font-family: var(--font-mono); font-size: 0.92rem; text-align: right; color: var(--text-primary); font-weight: 600;">${formatINR(sub)}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.90rem; text-align: right; color: ${cgst > 0 ? 'var(--text-secondary)' : 'var(--text-muted)'};">${cgst > 0 ? formatINR(cgst) : '—'}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.90rem; text-align: right; color: ${sgst > 0 ? 'var(--text-secondary)' : 'var(--text-muted)'};">${sgst > 0 ? formatINR(sgst) : '—'}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.90rem; text-align: right; color: ${igst > 0 ? 'var(--text-secondary)' : 'var(--text-muted)'};">${igst > 0 ? formatINR(igst) : '—'}</td>
+                <td style="font-family: var(--font-mono); font-weight: 800; text-align: right; color: var(--c-dark-emerald); font-size: 0.98rem;">${formatINR(tot)}</td>
+                <td style="text-align: center;"><span class="badge-status-pill ${valClass}" title="${escapeHtml(b.validation_notes || '')}">${escapeHtml(valStatus)}</span></td>
+                <td style="text-align: center;">
+                    <div class="table-action-btns" style="justify-content: center;">
+                        <button type="button" class="btn-tbl-action" onclick="openEditModal(${b.id})" title="View / Edit Voucher">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                             <span>Edit</span>
                         </button>
-                        <button type="button" class="btn-tbl-action danger" onclick="deleteBill(${b.id})" title="Delete Invoice">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <button type="button" class="btn-tbl-action danger" onclick="deleteBill(${b.id})" title="Delete Voucher">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                             </svg>
@@ -1192,6 +1674,22 @@ function renderBillsTable(bills) {
             </tr>
         `;
     }).join("");
+
+    if (tfoot) {
+        tfoot.innerHTML = `
+            <tr class="tally-totals-row">
+                <td colspan="5" style="font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.88rem; color: var(--c-dark-emerald);">
+                    Total Vouchers (${bills.length})
+                </td>
+                <td style="font-family: var(--font-mono); font-weight: 800; text-align: right; font-size: 0.94rem; color: var(--text-primary);">${formatINR(sumSub)}</td>
+                <td style="font-family: var(--font-mono); font-weight: 800; text-align: right; font-size: 0.90rem; color: var(--text-secondary);">${formatINR(sumCgst)}</td>
+                <td style="font-family: var(--font-mono); font-weight: 800; text-align: right; font-size: 0.90rem; color: var(--text-secondary);">${formatINR(sumSgst)}</td>
+                <td style="font-family: var(--font-mono); font-weight: 800; text-align: right; font-size: 0.90rem; color: var(--text-secondary);">${formatINR(sumIgst)}</td>
+                <td style="font-family: var(--font-mono); font-weight: 800; text-align: right; font-size: 1.02rem; color: var(--c-dark-emerald);">${formatINR(sumTotal)}</td>
+                <td colspan="2"></td>
+            </tr>
+        `;
+    }
 }
 
 // --------------------------------------------------
@@ -1267,23 +1765,185 @@ function resetAllFilters() {
     applyFilters();
 }
 
+// --------------------------------------------------
+// TALLY CONVERSION & LOCKED EXPORT CONTROLLERS
+// --------------------------------------------------
+
+let selectedTallyFormat = localStorage.getItem("selectedTallyFormat") || "xml";
+
+function selectTallyConversionFormat(fmt, showToastMsg = true) {
+    if (!["xml", "excel", "csv"].includes(fmt)) fmt = "xml";
+    selectedTallyFormat = fmt;
+    localStorage.setItem("selectedTallyFormat", fmt);
+    updateTallyFormatUI();
+
+    if (showToastMsg) {
+        const labelMap = {
+            xml: "Tally XML (.xml) - Direct vouchers import",
+            excel: "Tally Excel (.xlsx) - Spreadsheet with voucher ledgers",
+            csv: "Tally CSV (.csv) - Multi-row double-entry ledger"
+        };
+        showToast(`Target format set to: ${labelMap[fmt] || fmt.toUpperCase()}`);
+    }
+}
+
+function updateTallyFormatUI() {
+    // 1. Update selection cards in Upload section
+    ["xml", "excel", "csv"].forEach(f => {
+        const card = document.getElementById(`cardFormat${f.charAt(0).toUpperCase() + f.slice(1)}`);
+        if (card) {
+            if (f === selectedTallyFormat) {
+                card.classList.add("active");
+            } else {
+                card.classList.remove("active");
+            }
+        }
+    });
+
+    // 2. Update locked export toolbar in Invoice History
+    const labelEl = document.getElementById("lockedFormatLabel");
+    const btnTextEl = document.getElementById("lockedExportBtnText");
+    const badgeEl = document.getElementById("lockedExportBadge");
+    const btnEl = document.getElementById("btnLockedTallyExport");
+
+    const formatConfigs = {
+        xml: {
+            label: "Tally XML (.xml)",
+            btnText: "Export to Tally (XML)",
+            badge: "XML Only",
+            icon: `<polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>`
+        },
+        excel: {
+            label: "Tally Excel (.xlsx)",
+            btnText: "Export to Tally (Excel)",
+            badge: "Excel Only",
+            icon: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>`
+        },
+        csv: {
+            label: "Tally CSV (.csv)",
+            btnText: "Export to Tally (CSV)",
+            badge: "CSV Only",
+            icon: `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>`
+        }
+    };
+
+    const cfg = formatConfigs[selectedTallyFormat] || formatConfigs.xml;
+
+    if (labelEl) labelEl.textContent = cfg.label;
+    if (btnTextEl) btnTextEl.textContent = cfg.btnText;
+    if (badgeEl) badgeEl.textContent = cfg.badge;
+    if (btnEl) {
+        const svg = btnEl.querySelector("svg");
+        if (svg) svg.innerHTML = cfg.icon;
+        btnEl.title = `Export invoices strictly in ${cfg.label} format`;
+    }
+}
+
+function promptChangeTallyFormat() {
+    openFormatConfirmModal();
+}
+
+function executeLockedTallyExport() {
+    if (selectedTallyFormat === "xml") {
+        exportToTallyXML();
+    } else if (selectedTallyFormat === "excel") {
+        exportToTallyExcel();
+    } else if (selectedTallyFormat === "csv") {
+        exportToTallyCSV();
+    } else {
+        exportToTallyXML();
+    }
+}
+
 function exportData(format) {
+    const fmt = format === "excel" ? "excel" : "csv";
+    if (fmt !== selectedTallyFormat) {
+        showToast(`Export is locked strictly to Tally ${selectedTallyFormat.toUpperCase()} format as selected before conversion.`, "error");
+        return;
+    }
+    executeLockedTallyExport();
+}
+
+function getTallyExportParams() {
     const sDate = document.getElementById("filterStartDate")?.value || "";
     const eDate = document.getElementById("filterEndDate")?.value || "";
     const cat = document.getElementById("filterCategory")?.value || "all";
     const ven = document.getElementById("filterVendor")?.value || "all";
     const srch = document.getElementById("ledgerSearchInput")?.value || "";
 
-    const params = new URLSearchParams({
+    return new URLSearchParams({
         start_date: sDate,
         end_date: eDate,
         category: cat,
         vendor: ven,
         search: srch,
     });
+}
 
-    const endpoint = format === "excel" ? "/api/expense/export/excel" : "/api/expense/export/csv";
-    window.location.href = `${endpoint}?${params.toString()}`;
+async function triggerTallyExportDownload(endpoint, defaultFilename, formatName) {
+    const params = getTallyExportParams();
+    const url = `${endpoint}?${params.toString()}`;
+
+    try {
+        showToast(`Preparing Tally ${formatName} export...`);
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            let errorMsg = `Failed to export Tally ${formatName}`;
+            try {
+                const data = await res.json();
+                if (data && data.error) {
+                    errorMsg = data.error;
+                }
+            } catch (_) {}
+            showToast(errorMsg, "error");
+            return;
+        }
+
+        const blob = await res.blob();
+        if (blob.size === 0) {
+            showToast("No data returned for export.", "error");
+            return;
+        }
+
+        let downloadFilename = defaultFilename;
+        const disposition = res.headers.get("Content-Disposition");
+        if (disposition && disposition.includes("filename=")) {
+            const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+                downloadFilename = match[1].replace(/['"]/g, "").trim();
+            }
+        }
+
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = downloadFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+
+        showToast(`Tally ${formatName} exported successfully!`, "success");
+    } catch (err) {
+        console.error(`Tally ${formatName} export error:`, err);
+        showToast(`Export error: ${err.message || "Network error"}`, "error");
+    }
+}
+
+function exportToTallyXML() {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    triggerTallyExportDownload("/api/expense/export/tally/xml", `tally_export_${today}.xml`, "XML");
+}
+
+function exportToTallyExcel() {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    triggerTallyExportDownload("/api/expense/export/tally/excel", `tally_export_${today}.xlsx`, "Excel");
+}
+
+function exportToTallyCSV() {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    triggerTallyExportDownload("/api/expense/export/tally/csv", `tally_export_${today}.csv`, "CSV");
 }
 
 // --------------------------------------------------
@@ -1309,7 +1969,13 @@ async function openEditModal(billId) {
         document.getElementById("modalVendor").value = b.vendor;
         document.getElementById("modalInvoiceNo").value = b.invoice_no;
         document.getElementById("modalDate").value = b.date;
-        document.getElementById("modalCategory").value = b.category;
+
+        const catSelect = document.getElementById("modalCategory");
+        if (catSelect) {
+            catSelect.innerHTML = renderCategoryOptionsHtml(b.category);
+            catSelect.value = b.category;
+        }
+
         document.getElementById("modalSubtotal").value = b.subtotal;
         document.getElementById("modalGstRate").value = b.gst_rate;
         document.getElementById("modalGstAmount").value = b.gst_amount;
@@ -1321,6 +1987,9 @@ async function openEditModal(billId) {
         renderModalLineItems();
 
         modal.classList.add("active");
+        modal.onclick = (e) => {
+            if (e.target === modal) closeEditModal();
+        };
 
     } catch (err) {
         showError("Error opening bill modal: " + err.message);
@@ -1330,6 +1999,29 @@ async function openEditModal(billId) {
 function closeEditModal() {
     const modal = document.getElementById("editBillModal");
     if (modal) modal.classList.remove("active");
+}
+
+async function confirmClearAllBills() {
+    if (!confirm("Are you sure you want to delete all invoice history? This will permanently remove all uploaded bills from the ledger.")) {
+        return;
+    }
+
+    try {
+        const res = await fetch("/api/expense/bills/clear-all", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast("All bill history deleted successfully.");
+            loadDashboardData();
+        } else {
+            alert(data.error || "Failed to clear bill history.");
+        }
+    } catch (err) {
+        console.error("Error clearing bill history:", err);
+        alert("Network error while deleting bill history.");
+    }
 }
 
 function renderModalLineItems() {
@@ -1516,5 +2208,12 @@ function switchAppTab(tabId) {
 window.addEventListener("load", () => {
     if (window.location.hash === "#expense") {
         switchAppTab("expense");
+    }
+});
+
+// Re-render charts dynamically when theme changes
+window.addEventListener("themeChanged", () => {
+    if (window.currentChartsData) {
+        renderCharts(window.currentChartsData);
     }
 });

@@ -48,10 +48,10 @@
 }
 
 [data-theme="dark-emerald"] .main-tab-btn.active {
-    background: var(--c-moss-green);
-    border-color: var(--c-moss-green);
-    color: #08221B;
-    box-shadow: 0 4px 14px rgba(122, 160, 90, 0.3);
+    background: var(--c-apricot);
+    border-color: var(--c-apricot);
+    color: #1F2218;
+    box-shadow: 0 4px 14px rgba(215, 139, 48, 0.35);
 }
 
 .main-tab-btn svg {
@@ -478,9 +478,9 @@
 }
 
 [data-theme="dark-emerald"] .btn-chip.active {
-    background: var(--c-moss-green);
-    color: #08221B;
-    border-color: var(--c-moss-green);
+    background: var(--c-apricot);
+    color: #1F2218;
+    border-color: var(--c-apricot);
 }
 
 /* --------------------------------------------------
@@ -529,7 +529,7 @@
 }
 
 [data-theme="dark-emerald"] .kpi-card::before {
-    background: var(--c-moss-green);
+    background: var(--c-apricot);
 }
 
 .kpi-card.kpi-gst::before {
@@ -570,8 +570,8 @@
 }
 
 [data-theme="dark-emerald"] .kpi-icon-wrap {
-    background: rgba(122, 160, 90, 0.15);
-    color: var(--c-moss-green);
+    background: rgba(215, 139, 48, 0.15) !important;
+    color: var(--c-apricot) !important;
 }
 
 .kpi-value {
@@ -798,6 +798,480 @@
     transform: translateY(-1px);
 }
 
+/* ==============================================================
+   TALLY PRE-CONVERSION FORMAT SELECTOR & TALLY LEDGER STYLES
+   ============================================================== */
+.tally-pre-convert-selector {
+    background: var(--bg-surface-elevated, rgba(13, 76, 60, 0.03));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 10px);
+    padding: 16px 18px;
+    margin-bottom: 14px;
+}
+
+.tally-pre-convert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.tally-step-badge {
+    background: var(--c-dark-emerald, #0D4C3C);
+    color: #FFFFFF;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+}
+
+.tally-pre-convert-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.tally-format-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+}
+
+.tally-format-card {
+    background: var(--bg-surface, #FFFFFF);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md, 8px);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    user-select: none;
+}
+
+.tally-format-card:hover {
+    border-color: var(--c-moss-green, #7AA05A);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.tally-format-card.active {
+    border-color: var(--c-dark-emerald, #0D4C3C);
+    background: rgba(13, 76, 60, 0.05);
+    box-shadow: 0 0 0 1px var(--c-dark-emerald, #0D4C3C), 0 4px 16px rgba(13, 76, 60, 0.12);
+}
+
+.tally-card-radio-bullet {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.tally-format-card.active .tally-card-radio-bullet {
+    border-color: var(--c-dark-emerald, #0D4C3C);
+    background: var(--c-dark-emerald, #0D4C3C);
+    box-shadow: inset 0 0 0 3px #FFFFFF;
+}
+
+.tally-card-icon-wrap {
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tally-card-icon-wrap.xml {
+    background: rgba(13, 76, 60, 0.12);
+    color: var(--c-dark-emerald, #0D4C3C);
+}
+
+.tally-card-icon-wrap.excel {
+    background: rgba(122, 160, 90, 0.15);
+    color: #3b6e22;
+}
+
+.tally-card-icon-wrap.csv {
+    background: rgba(184, 93, 56, 0.12);
+    color: var(--c-terracotta, #B85D38);
+}
+
+.tally-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.tally-card-label-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tally-card-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.tally-rec-pill {
+    background: var(--c-dark-emerald, #0D4C3C);
+    color: #FFFFFF;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tally-card-desc {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+}
+
+/* Locked Export Toolbar Styles */
+.tally-active-format-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(13, 76, 60, 0.08);
+    border: 1px solid rgba(13, 76, 60, 0.25);
+    padding: 7px 12px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.84rem;
+    color: var(--text-primary);
+}
+
+.btn-change-tally-format {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--c-dark-emerald, #0D4C3C);
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-change-tally-format:hover {
+    background: var(--c-dark-emerald, #0D4C3C);
+    color: #FFFFFF;
+    border-color: var(--c-dark-emerald, #0D4C3C);
+}
+
+.btn-tally-locked {
+    background: var(--c-dark-emerald, #0D4C3C) !important;
+    color: #FFFFFF !important;
+    border-color: var(--c-dark-emerald, #0D4C3C) !important;
+    box-shadow: 0 4px 12px rgba(13, 76, 60, 0.25);
+}
+
+.btn-tally-locked:hover {
+    background: #082F25 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(13, 76, 60, 0.35);
+}
+
+.btn-tally-locked .tally-badge-pill {
+    background: rgba(255, 255, 255, 0.22);
+    color: #FFFFFF;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Tally Table Voucher Type Badge */
+.tally-vch-badge {
+    background: rgba(45, 90, 74, 0.12);
+    color: var(--c-slate-green, #2D5A4A);
+    border: 1px solid rgba(45, 90, 74, 0.25);
+    font-size: 0.74rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tally-register-badge {
+    background: rgba(122, 160, 90, 0.18);
+    color: var(--c-moss-green, #4A7A2E);
+    border: 1px solid rgba(122, 160, 90, 0.3);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Tally Totals Row in tfoot */
+.tally-totals-row td {
+    padding: 13px 12px;
+    background: var(--bg-surface-elevated, #F8FAF8);
+    border-top: 2px solid var(--c-dark-emerald, #0D4C3C) !important;
+    border-bottom: 3px double var(--c-dark-emerald, #0D4C3C) !important;
+}
+
+/* Modal Confirmation Options */
+.tally-modal-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tally-modal-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tally-modal-option:hover {
+    border-color: var(--c-moss-green, #7AA05A);
+    background: var(--bg-surface-elevated, rgba(0,0,0,0.02));
+}
+
+.tally-modal-option.selected {
+    border-color: var(--c-dark-emerald, #0D4C3C);
+    background: rgba(13, 76, 60, 0.06);
+    box-shadow: 0 0 0 1px var(--c-dark-emerald, #0D4C3C);
+}
+
+.modal-opt-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.modal-opt-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-opt-sub {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Tally Export Dropdown Styles */
+.tally-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-tally-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-tally-dropdown.dropdown-open {
+    background: var(--bg-surface-elevated);
+    border-color: var(--border-hover);
+}
+
+.tally-badge-pill {
+    background: rgba(122, 160, 90, 0.18);
+    color: var(--c-moss-green, #7AA05A);
+    border: 1px solid rgba(122, 160, 90, 0.35);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.tally-caret-icon {
+    transition: transform 0.2s ease;
+}
+
+.btn-tally-dropdown.dropdown-open .tally-caret-icon {
+    transform: rotate(180deg);
+}
+
+.tally-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 290px;
+    background: var(--bg-surface, #FFFFFF);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+    padding: 8px;
+    z-index: 1050;
+    animation: tallyMenuFade 0.2s ease forwards;
+}
+
+.tally-dropdown-menu.show {
+    display: block;
+}
+
+@keyframes tallyMenuFade {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tally-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+}
+
+.tally-menu-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.tally-menu-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--c-dark-emerald, #0D4C3C);
+    background: rgba(13, 76, 60, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.tally-menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.tally-menu-item:hover {
+    background: var(--bg-surface-elevated, rgba(0, 0, 0, 0.04));
+    transform: translateX(2px);
+}
+
+.tally-item-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tally-icon-xml {
+    background: rgba(13, 76, 60, 0.12);
+    color: var(--c-dark-emerald, #0D4C3C);
+}
+
+.tally-icon-excel {
+    background: rgba(122, 160, 90, 0.15);
+    color: var(--c-moss-green, #4A7A2E);
+}
+
+.tally-icon-csv {
+    background: rgba(184, 93, 56, 0.12);
+    color: var(--c-terracotta, #B85D38);
+}
+
+.tally-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.tally-item-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tally-item-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.tally-recommended-tag {
+    font-size: 0.65rem;
+    font-weight: 800;
+    background: #0D4C3C;
+    color: #FFFFFF;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tally-item-sub {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    line-height: 1.2;
+}
+
+.btn-clear-history {
+    background: rgba(184, 93, 56, 0.08);
+    border: 1px solid rgba(184, 93, 56, 0.28);
+    color: var(--c-terracotta);
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.btn-clear-history:hover {
+    background: var(--c-terracotta);
+    color: #FFFFFF;
+    border-color: var(--c-terracotta);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(184, 93, 56, 0.25);
+}
+
 .bills-table-container {
     overflow-x: auto;
     border: 1px solid var(--border);
@@ -854,10 +1328,10 @@
 
 [data-theme="dark-emerald"] .category-chip.food { color: #FCD34D; }
 [data-theme="dark-emerald"] .category-chip.travel { color: #A7F3D0; }
-[data-theme="dark-emerald"] .category-chip.utilities { color: #6EE7B7; }
-[data-theme="dark-emerald"] .category-chip.stationery { color: #BEF264; }
-[data-theme="dark-emerald"] .category-chip.inventory { color: #CBD5E1; }
-[data-theme="dark-emerald"] .category-chip.other { color: #D1D5DB; }
+[data-theme="dark-emerald"] .category-chip.utilities { color: var(--c-apricot); }
+[data-theme="dark-emerald"] .category-chip.stationery { color: #C2E29B; }
+[data-theme="dark-emerald"] .category-chip.inventory { color: var(--c-ivory); }
+[data-theme="dark-emerald"] .category-chip.other { color: var(--c-natural); }
 
 /* Validation Status Badges */
 .badge-status-pill {
@@ -886,11 +1360,29 @@
 }
 
 [data-theme="dark-emerald"] .badge-status-pill.needs-review {
-    color: #FDE68A;
+    color: var(--c-ivory);
+    background: rgba(215, 139, 48, 0.2);
+    border-color: rgba(215, 139, 48, 0.45);
 }
 
 [data-theme="dark-emerald"] .badge-status-pill.ok {
-    color: #B4E396;
+    color: #C2E29B;
+}
+
+[data-theme="dark-emerald"] #btnSaveAllBills,
+[data-theme="dark-emerald"] #expenseManualModal .btn-add {
+    background: var(--c-apricot) !important;
+    color: #1F2218 !important;
+    border-color: var(--c-apricot) !important;
+}
+
+[data-theme="dark-emerald"] #btnSaveAllBills:hover,
+[data-theme="dark-emerald"] #expenseManualModal .btn-add:hover {
+    background: var(--c-apricot-hover) !important;
+}
+
+[data-theme="dark-emerald"] .bill-modal-overlay {
+    background: rgba(18, 20, 13, 0.82);
 }
 
 .table-action-btns {
@@ -994,3 +1486,268 @@
 .bill-modal-close:hover {
     color: var(--text-primary);
 }
+
+/* ==============================================================
+   SINGLE VENDOR / BUSINESS PROFILE & CATEGORY BANNER
+   ============================================================== */
+
+.business-profile-card {
+    background: linear-gradient(135deg, rgba(13, 76, 60, 0.04) 0%, rgba(45, 90, 74, 0.08) 100%), var(--bg-surface);
+    border: 1px solid rgba(13, 76, 60, 0.18);
+    position: relative;
+    overflow: hidden;
+    padding: 24px 28px;
+}
+
+[data-theme="dark-emerald"] .business-profile-card {
+    background: linear-gradient(135deg, rgba(215, 139, 48, 0.06) 0%, rgba(15, 53, 43, 0.5) 100%), var(--bg-surface);
+    border-color: rgba(215, 139, 48, 0.25);
+}
+
+.business-profile-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.business-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.business-firm-tag {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--c-dark-emerald);
+    color: var(--c-alabaster);
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+[data-theme="dark-emerald"] .business-firm-tag {
+    background: var(--c-apricot);
+    color: #1F2218;
+}
+
+.business-gst-tag {
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border);
+    padding: 3px 9px;
+    border-radius: 6px;
+}
+
+.business-main-title {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+    letter-spacing: -0.02em;
+}
+
+.business-sub-text {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bullet-dot {
+    color: var(--text-muted);
+}
+
+.btn-profile-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 9px 16px;
+    border-radius: var(--radius-md);
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.btn-profile-edit:hover {
+    background: var(--bg-surface-elevated);
+    border-color: var(--c-dark-emerald);
+    color: var(--c-dark-emerald);
+    transform: translateY(-1px);
+}
+
+[data-theme="dark-emerald"] .btn-profile-edit:hover {
+    border-color: var(--c-apricot);
+    color: var(--c-apricot);
+}
+
+/* Categories Management Section */
+.business-categories-section {
+    margin-top: 18px;
+}
+
+.categories-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.categories-bar-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+}
+
+.categories-interactive-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.vendor-category-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.vendor-cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border);
+    padding: 6px 13px;
+    border-radius: 9999px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.vendor-cat-pill:hover {
+    border-color: var(--c-dark-emerald);
+    background: rgba(13, 76, 60, 0.08);
+    transform: translateY(-1px);
+}
+
+[data-theme="dark-emerald"] .vendor-cat-pill:hover {
+    border-color: var(--c-apricot);
+    background: rgba(215, 139, 48, 0.12);
+}
+
+.vendor-cat-pill.active-filter {
+    background: var(--c-dark-emerald);
+    color: #FFFFFF;
+    border-color: var(--c-dark-emerald);
+}
+
+[data-theme="dark-emerald"] .vendor-cat-pill.active-filter {
+    background: var(--c-apricot);
+    color: #1F2218;
+    border-color: var(--c-apricot);
+}
+
+.vendor-cat-pill .btn-del-cat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.08);
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.6;
+    margin-left: 2px;
+    padding: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.vendor-cat-pill .btn-del-cat:hover {
+    opacity: 1;
+    background: #BA3939;
+    color: #FFFFFF;
+}
+
+.quick-add-category-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface);
+    border: 1px dashed var(--border);
+    border-radius: 9999px;
+    padding: 3px 6px 3px 12px;
+    transition: border-color 0.2s ease;
+}
+
+.quick-add-category-form:focus-within {
+    border-color: var(--c-dark-emerald);
+    border-style: solid;
+}
+
+[data-theme="dark-emerald"] .quick-add-category-form:focus-within {
+    border-color: var(--c-apricot);
+}
+
+.new-category-input {
+    border: none;
+    background: transparent;
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    outline: none;
+    min-width: 170px;
+}
+
+.new-category-input::placeholder {
+    color: var(--text-muted);
+}
+
+.btn-add-cat-inline {
+    background: var(--c-dark-emerald);
+    color: var(--c-alabaster);
+    border: none;
+    border-radius: 9999px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-add-cat-inline:hover {
+    background: var(--c-slate-green);
+}
+
+[data-theme="dark-emerald"] .btn-add-cat-inline {
+    background: var(--c-apricot);
+    color: #1F2218;
+}
+

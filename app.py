@@ -35,10 +35,32 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB max file size
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'expenses.db')}"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-from models import db, ensure_db_schema
+pg_user = os.environ.get("DB_USER", "postgres")
+pg_pwd = os.environ.get("DB_PASSWORD", "root")
+pg_host = os.environ.get("DB_HOST", "localhost")
+pg_port = os.environ.get("DB_PORT", "5432")
+pg_name = os.environ.get("DB_NAME", "ai_document_scanning")
+default_pg_uri = f"postgresql://{pg_user}:{pg_pwd}@{pg_host}:{pg_port}/{pg_name}"
+
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", default_pg_uri)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
+
+from models import (
+    db,
+    ensure_db_schema,
+    DocumentScan,
+    ScanFieldResult,
+    AuditLog,
+    log_audit,
+    Vendor,
+    Bill,
+    LineItem,
+)
 from expense_routes import expense_bp
 
 db.init_app(app)
@@ -1192,6 +1214,65 @@ def download_json_report():
     return jsonify({"error": "Report not found"}), 404
 
 
+def save_document_scan_to_db(document_type, filename, saved_path, preview_url, rendered_images, results, summary, doc_meta, quality_result, report_text):
+    """Persist verification scan and granular field evidence into PostgreSQL."""
+    try:
+        scan = DocumentScan(
+            document_type=document_type,
+            document_name=doc_meta.get("document_header") or filename,
+            source_filename=filename,
+            storage_path=saved_path,
+            preview_url=preview_url,
+            page_count=len(rendered_images) if rendered_images else 1,
+            document_header=doc_meta.get("document_header", ""),
+            issuing_entity=doc_meta.get("issuing_entity", ""),
+            overall_status=summary.get("overall_status", "PASSED"),
+            passed_count=summary.get("passed_count", 0),
+            total_fields=summary.get("total_fields", 0),
+            match_percentage=summary.get("match_percentage", 0.0),
+            image_quality_passed=quality_result.get("passed", True) if quality_result else True,
+            image_quality_details=json.dumps(quality_result) if quality_result else None,
+            report_text=report_text,
+            summary_json=json.dumps(summary) if summary else None,
+        )
+        db.session.add(scan)
+        db.session.flush()
+
+        for r in results:
+            field_res = ScanFieldResult(
+                scan_id=scan.id,
+                field_key=r.get("field_id", ""),
+                field_name=r.get("field", ""),
+                constraint_type=r.get("constraint", "fuzzy"),
+                constraint_label=r.get("constraint_label", ""),
+                expected_value=str(r.get("user_value", "")),
+                extracted_value=str(r.get("extracted_value", "")),
+                status=r.get("status", "PASS"),
+                confidence=r.get("confidence", "HIGH"),
+                page=int(r.get("page", 1)),
+                snippet=r.get("snippet", ""),
+                evaluation_detail=r.get("detail", ""),
+                is_required=bool(r.get("required", True)),
+            )
+            db.session.add(field_res)
+
+        db.session.commit()
+
+        log_audit(
+            action="SCAN_VERIFIED",
+            entity_type="document_scan",
+            entity_id=scan.id,
+            summary=f"Verified {document_type} ('{filename}') - Verdict: {summary.get('overall_status')}",
+            payload={"summary": summary, "fields_count": len(results)},
+            ip_address=request.remote_addr if request else None,
+        )
+        return scan
+    except Exception as exc:
+        db.session.rollback()
+        print(f"Error saving document scan to database: {exc}")
+        return None
+
+
 @app.route("/api/verify", methods=["POST"])
 def api_verify():
     document_type = request.form.get("document_type", "").strip() or "Document"
@@ -1245,8 +1326,23 @@ def api_verify():
 
     report_text, json_report = generate_reports(document_type, filename, results, summary, doc_meta)
 
+    # Persist forensic audit record in PostgreSQL
+    saved_scan = save_document_scan_to_db(
+        document_type=document_type,
+        filename=filename,
+        saved_path=saved_path,
+        preview_url=preview_url,
+        rendered_images=rendered_images,
+        results=results,
+        summary=summary,
+        doc_meta=doc_meta,
+        quality_result=quality_result,
+        report_text=report_text,
+    )
+
     return jsonify({
         "success": True,
+        "scan_id": saved_scan.id if saved_scan else None,
         "document_type": document_type,
         "filename": filename,
         "preview_url": preview_url,
@@ -1299,6 +1395,20 @@ def verify_form():
     results, summary, doc_meta = verify_document_pipeline(rendered_images, fields_spec, doc_type=document_type)
     report_text, json_report = generate_reports(document_type, filename, results, summary, doc_meta)
 
+    # Persist in PostgreSQL
+    save_document_scan_to_db(
+        document_type=document_type,
+        filename=filename,
+        saved_path=saved_path,
+        preview_url=preview_url,
+        rendered_images=rendered_images,
+        results=results,
+        summary=summary,
+        doc_meta=doc_meta,
+        quality_result=quality_result,
+        report_text=report_text,
+    )
+
     return render_template(
         "index.html",
         presets=PRESET_TEMPLATES,
@@ -1310,6 +1420,74 @@ def verify_form():
         preview_url=preview_url,
         active_fields=fields_spec,
     )
+
+
+# --------------------------------------------------
+# AUDIT & HISTORICAL DOCUMENT SCANS API
+# --------------------------------------------------
+
+@app.route("/api/scans", methods=["GET"])
+def api_get_scans():
+    """Fetch past document verification audits from PostgreSQL."""
+    doc_type = request.args.get("type", "").strip()
+    status = request.args.get("status", "").strip()
+    limit = request.args.get("limit", 20, type=int)
+
+    query = DocumentScan.query
+    if doc_type:
+        query = query.filter(DocumentScan.document_type == doc_type)
+    if status:
+        query = query.filter(DocumentScan.overall_status == status)
+
+    scans = query.order_by(DocumentScan.id.desc()).limit(limit).all()
+    return jsonify({
+        "success": True,
+        "count": len(scans),
+        "scans": [s.to_dict() for s in scans],
+    })
+
+
+@app.route("/api/scans/<int:scan_id>", methods=["GET"])
+def api_get_scan_detail(scan_id):
+    """Fetch complete details and field results for a specific scan."""
+    scan = DocumentScan.query.get(scan_id)
+    if not scan:
+        return jsonify({"success": False, "error": f"Scan #{scan_id} not found."}), 404
+    return jsonify({"success": True, "scan": scan.to_dict()})
+
+
+@app.route("/api/scans/<int:scan_id>/report", methods=["GET"])
+def api_get_scan_report(scan_id):
+    """Fetch the forensic text report for a specific scan."""
+    scan = DocumentScan.query.get(scan_id)
+    if not scan or not scan.report_text:
+        return jsonify({"success": False, "error": "Report not found."}), 404
+    return scan.report_text, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/api/database/status", methods=["GET"])
+def api_database_status():
+    """Check PostgreSQL database connection and table record statistics."""
+    try:
+        bills_count = Bill.query.count()
+        line_items_count = LineItem.query.count()
+        vendors_count = Vendor.query.count()
+        scans_count = DocumentScan.query.count()
+        audits_count = AuditLog.query.count()
+        return jsonify({
+            "success": True,
+            "status": "connected",
+            "database": "ai_document_scanning (PostgreSQL)",
+            "statistics": {
+                "bills": bills_count,
+                "line_items": line_items_count,
+                "vendors": vendors_count,
+                "document_scans": scans_count,
+                "audit_logs": audits_count,
+            },
+        })
+    except Exception as exc:
+        return jsonify({"success": False, "status": "error", "error": str(exc)}), 500
 
 
 if __name__ == "__main__":

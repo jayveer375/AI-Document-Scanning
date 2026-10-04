@@ -1,4 +1,6 @@
 flask
+flask-sqlalchemy
+psycopg2-binary
 mistralai
 PyMuPDF
 python-dateutil

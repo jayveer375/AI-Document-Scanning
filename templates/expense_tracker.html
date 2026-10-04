@@ -4,6 +4,63 @@
 
 <div class="expense-container">
 
+    <!-- 0. SINGLE BUSINESS / VENDOR PROFILE & CATEGORIES BANNER -->
+    <div class="expense-card business-profile-card">
+        <div class="business-profile-banner">
+            <div class="business-info-col">
+                <div class="business-badge-row">
+                    <span class="business-firm-tag">ENTERPRISE VENDOR PROFILE</span>
+                    <span id="bannerGstinBadge" class="business-gst-tag">GSTIN: 24ABCDE1234F1Z5</span>
+                </div>
+                <h1 id="bannerBusinessName" class="business-main-title">R K Construction</h1>
+                <p class="business-sub-text">
+                    <span id="bannerOwnerName">Primary Vendor</span>
+                    <span class="bullet-dot">•</span>
+                    <span id="bannerContactInfo">Central Expense Management</span>
+                </p>
+            </div>
+
+            <div class="business-actions-col">
+                <button type="button" class="btn-profile-edit" onclick="openBusinessProfileModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                    <span>Edit Business Details</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Custom Expense Categories Management Bar -->
+        <div class="business-categories-section">
+            <div class="categories-bar-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M4 9h16"></path>
+                        <path d="M4 15h16"></path>
+                        <path d="M10 3L8 21"></path>
+                        <path d="M16 3l-2 21"></path>
+                    </svg>
+                    <span class="categories-bar-title">Active Vendor Expense Categories</span>
+                </div>
+                <span id="categoryCountBadge" class="fields-count-badge">0 Categories</span>
+            </div>
+
+            <div class="categories-interactive-wrap">
+                <!-- Rendered category chips -->
+                <div id="vendorCategoriesList" class="vendor-category-chips">
+                    <!-- Populated dynamically by JS -->
+                </div>
+
+                <!-- Inline Quick-Add Category Form -->
+                <form id="quickAddCategoryForm" class="quick-add-category-form" onsubmit="handleQuickAddCategory(event)">
+                    <input type="text" id="newCategoryInput" placeholder="+ Add custom category (e.g. Pins, Rent, Fees...)" class="new-category-input" required autocomplete="off">
+                    <button type="submit" class="btn-add-cat-inline">Add</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- 1. UPLOAD & BATCH EXTRACTION CARD -->
     <div class="expense-card">
         <div class="expense-card-header">
@@ -23,6 +80,78 @@
         </div>
 
         <form id="expenseUploadForm">
+            <!-- TARGET CONVERSION FORMAT SELECTOR (KEPT BEFORE ENTERING INVOICES) -->
+            <div class="tally-pre-convert-selector">
+                <div class="tally-pre-convert-header">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="tally-step-badge">STEP 1</span>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary);">Select Target Tally Conversion Format</strong>
+                    </div>
+                    <span class="tally-pre-convert-note">Select before entering invoices • Export will be locked strictly to this format</span>
+                </div>
+
+                <div class="tally-format-options-grid">
+                    <!-- Option 1: XML -->
+                    <div class="tally-format-card active" id="cardFormatXml" onclick="selectTallyConversionFormat('xml')">
+                        <div class="tally-card-radio-bullet"></div>
+                        <div class="tally-card-icon-wrap xml">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <polyline points="16 18 22 12 16 6"></polyline>
+                                <polyline points="8 6 2 12 8 18"></polyline>
+                            </svg>
+                        </div>
+                        <div class="tally-card-info">
+                            <div class="tally-card-label-row">
+                                <span class="tally-card-name">Tally XML (.xml)</span>
+                                <span class="tally-rec-pill">Recommended</span>
+                            </div>
+                            <span class="tally-card-desc">Native direct vouchers import into TallyPrime & ERP 9</span>
+                        </div>
+                    </div>
+
+                    <!-- Option 2: Excel -->
+                    <div class="tally-format-card" id="cardFormatExcel" onclick="selectTallyConversionFormat('excel')">
+                        <div class="tally-card-radio-bullet"></div>
+                        <div class="tally-card-icon-wrap excel">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                        </div>
+                        <div class="tally-card-info">
+                            <div class="tally-card-label-row">
+                                <span class="tally-card-name">Tally Excel (.xlsx)</span>
+                            </div>
+                            <span class="tally-card-desc">Spreadsheet with voucher ledgers & tax split</span>
+                        </div>
+                    </div>
+
+                    <!-- Option 3: CSV -->
+                    <div class="tally-format-card" id="cardFormatCsv" onclick="selectTallyConversionFormat('csv')">
+                        <div class="tally-card-radio-bullet"></div>
+                        <div class="tally-card-icon-wrap csv">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </div>
+                        <div class="tally-card-info">
+                            <div class="tally-card-label-row">
+                                <span class="tally-card-name">Tally CSV (.csv)</span>
+                            </div>
+                            <span class="tally-card-desc">Multi-row double-entry ledger rows</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: DROPZONE -->
+            <div style="margin-top: 18px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                <span class="tally-step-badge">STEP 2</span>
+                <strong style="font-size: 0.95rem; color: var(--text-primary);">Upload Invoice Files</strong>
+            </div>
+
             <!-- Dropzone for multiple files -->
             <div id="expenseDropzone" class="dropzone" style="min-height: 100px; padding: 26px; justify-content: center; flex-direction: column;">
                 <div class="dropzone-icon" style="width: 46px; height: 46px;">
@@ -122,20 +251,7 @@
                 <span class="filter-label">Category:</span>
                 <select id="filterCategory" class="filter-select" onchange="applyFilters()">
                     <option value="all">All Categories</option>
-                    <option value="Food">Food</option>
-                    <option value="Travel">Travel</option>
-                    <option value="Utilities">Utilities</option>
-                    <option value="Stationery">Stationery</option>
-                    <option value="Inventory">Inventory</option>
-                    <option value="Other">Other</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <span class="filter-label">Vendor:</span>
-                <select id="filterVendor" class="filter-select" onchange="applyFilters()">
-                    <option value="all">All Vendors</option>
-                    <!-- Dynamically populated -->
+                    <!-- Dynamically populated by JS -->
                 </select>
             </div>
 
@@ -200,20 +316,20 @@
                 </div>
             </div>
 
-            <!-- KPI 4: Top Vendor -->
+            <!-- KPI 4: Top Expense Category -->
             <div class="kpi-card kpi-vendor">
                 <div class="kpi-top-row">
-                    <span class="kpi-label">Top Vendor</span>
+                    <span class="kpi-label">Top Expense Category</span>
                     <div class="kpi-icon-wrap" style="color: #C29B38; background: rgba(194, 155, 56, 0.12);">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                         </svg>
                     </div>
                 </div>
-                <div id="kpiTopVendorName" class="kpi-value" style="font-size: 1.45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">None</div>
+                <div id="kpiTopCategoryName" class="kpi-value" style="font-size: 1.45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">None</div>
                 <div class="kpi-footer">
-                    <span id="kpiTopVendorSpend" style="font-weight: 700; color: var(--text-primary);">₹0</span>
-                    <span id="kpiTopVendorShare">(0% of spend)</span>
+                    <span id="kpiTopCategorySpend" style="font-weight: 700; color: var(--text-primary);">₹0</span>
+                    <span id="kpiTopCategoryShare">(0% of spend)</span>
                 </div>
             </div>
         </div>
@@ -230,7 +346,7 @@
                 </div>
             </div>
 
-            <!-- Chart 2: Spending Trend vs Previous Month (Category / Weekly) -->
+            <!-- Chart 2: Spending Trend vs Previous Month (Category Comparison) -->
             <div class="chart-card">
                 <div class="chart-card-header">
                     <h3>Monthly Comparison</h3>
@@ -242,7 +358,7 @@
             </div>
         </div>
 
-        <!-- Row 2 Charts: Category Donut & Top Vendors Bar -->
+        <!-- Row 2 Charts: Category Donut & Category Breakdown -->
         <div class="charts-row-grid split-even" style="margin-top: 24px;">
             <!-- Chart 3: Category Donut -->
             <div class="chart-card">
@@ -254,13 +370,14 @@
                 </div>
             </div>
 
-            <!-- Chart 4: Top Vendors Horizontal Bar -->
+            <!-- Chart 4: Category Expense Breakdown Horizontal Bar -->
             <div class="chart-card">
                 <div class="chart-card-header">
-                    <h3>Top Vendors</h3>
+                    <h3>Category Expense Breakdown</h3>
+                    <span style="font-weight: 600; color: var(--text-secondary); font-size: 0.85rem;">Ranked by Spend</span>
                 </div>
                 <div class="chart-container-box">
-                    <canvas id="chartTopVendors"></canvas>
+                    <canvas id="chartCategoryBreakdown"></canvas>
                 </div>
             </div>
         </div>
@@ -300,60 +417,73 @@
     <div class="expense-card">
         <div class="ledger-actions-bar">
             <div class="expense-card-title">
-                <h2>Invoice History</h2>
-                <span id="ledgerCountBadge" class="fields-count-badge">0 Bills</span>
-            </div>
-
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                <div class="search-box-wrap">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <input type="text" id="ledgerSearchInput" placeholder="Search invoices..." oninput="handleSearchDebounced(this.value)">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <h2 style="font-size: 1.35rem; margin: 0; font-weight: 800; color: var(--text-primary);">Invoice History</h2>
+                    <span id="ledgerCountBadge" class="fields-count-badge">0 Bills</span>
+                    <span class="tally-register-badge">Tally Purchase Register</span>
                 </div>
 
-                <div class="export-btns-group">
-                    <button type="button" class="btn-export" onclick="exportData('csv')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <div class="search-box-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
-                        <span>CSV</span>
-                    </button>
-                    <button type="button" class="btn-export" onclick="exportData('excel')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                        </svg>
-                        <span>Excel</span>
-                    </button>
+                        <input type="text" id="ledgerSearchInput" placeholder="Search vouchers..." oninput="handleSearchDebounced(this.value)">
+                    </div>
+
+                    <!-- Locked Export Button Group according to user's pre-conversion selection -->
+                    <div class="export-btns-group" id="ledgerExportBtnsGroup">
+                        <div class="tally-active-format-pill" title="Conversion format selected prior to invoice entry">
+                            <span class="lock-icon">🔒</span>
+                            <span>Target: <strong id="lockedFormatLabel">Tally XML (.xml)</strong></span>
+                            <button type="button" class="btn-change-tally-format" onclick="promptChangeTallyFormat()" title="Change Tally conversion format">Change</button>
+                        </div>
+                        <button type="button" class="btn-export btn-tally-locked" id="btnLockedTallyExport" onclick="executeLockedTallyExport()" title="Export only in selected Tally format">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"></polyline>
+                                <polyline points="8 6 2 12 8 18"></polyline>
+                            </svg>
+                            <span id="lockedExportBtnText">Export to Tally (XML)</span>
+                            <span class="tally-badge-pill" id="lockedExportBadge">XML Only</span>
+                        </button>
+                        <button type="button" class="btn-clear-history" onclick="confirmClearAllBills()" title="Delete all uploaded bills and reset ledger">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            <span>Clear History</span>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="bills-table-container">
-            <table class="bills-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Vendor</th>
-                        <th>Invoice #</th>
-                        <th>Category</th>
-                        <th>Validation</th>
-                        <th>Items Summary</th>
-                        <th>Subtotal</th>
-                        <th>GST (Rate & Tax)</th>
-                        <th>Total</th>
-                        <th style="text-align: center;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="billsTableBody">
-                    <!-- Populated dynamically -->
-                </tbody>
-            </table>
-        </div>
+            <div class="bills-table-container">
+                <table class="bills-table tally-bills-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 105px;">Date</th>
+                            <th style="min-width: 95px;">Voucher Type</th>
+                            <th style="min-width: 105px;">Voucher #</th>
+                            <th style="min-width: 170px;">Party Ledger (Credit)</th>
+                            <th style="min-width: 150px;">Expense Ledger (Debit)</th>
+                            <th style="min-width: 105px; text-align: right;">Subtotal (Dr)</th>
+                            <th style="min-width: 90px; text-align: right;">CGST (Dr)</th>
+                            <th style="min-width: 90px; text-align: right;">SGST (Dr)</th>
+                            <th style="min-width: 90px; text-align: right;">IGST (Dr)</th>
+                            <th style="min-width: 110px; text-align: right;">Total (Cr)</th>
+                            <th style="min-width: 90px; text-align: center;">Validation</th>
+                            <th style="min-width: 95px; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="billsTableBody">
+                        <!-- Populated dynamically in Tally format by JS -->
+                    </tbody>
+                    <tfoot id="billsTableFoot">
+                        <!-- Populated dynamically with Tally register totals -->
+                    </tfoot>
+                </table>
+            </div>
     </div>
 
 </div>
@@ -369,7 +499,7 @@
             <input type="hidden" id="modalBillId">
             <div class="review-fields-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="review-field-item">
-                    <label class="review-field-label">Vendor Name</label>
+                    <label class="review-field-label">Supplier / Store Reference</label>
                     <input type="text" id="modalVendor" class="clean-input" required>
                 </div>
                 <div class="review-field-item">
@@ -383,12 +513,7 @@
                 <div class="review-field-item">
                     <label class="review-field-label">Category</label>
                     <select id="modalCategory" class="clean-select">
-                        <option value="Food">Food</option>
-                        <option value="Travel">Travel</option>
-                        <option value="Utilities">Utilities</option>
-                        <option value="Stationery">Stationery</option>
-                        <option value="Inventory">Inventory</option>
-                        <option value="Other">Other</option>
+                        <!-- Populated dynamically by JS -->
                     </select>
                 </div>
                 <div class="review-field-item">
@@ -451,3 +576,106 @@
         </form>
     </div>
 </div>
+
+<!-- 6. EDIT BUSINESS DETAILS MODAL -->
+<div id="businessProfileModal" class="bill-modal-overlay">
+    <div class="bill-modal-card" style="max-width: 520px;">
+        <div class="bill-modal-header">
+            <h3>Edit Business & Vendor Details</h3>
+            <button type="button" class="bill-modal-close" onclick="closeBusinessProfileModal()">&times;</button>
+        </div>
+        <form id="businessProfileForm" onsubmit="handleSaveBusinessProfile(event)">
+            <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
+                <div class="review-field-item">
+                    <label class="review-field-label">Business / Firm Name</label>
+                    <input type="text" id="profModalBusinessName" class="clean-input" placeholder="e.g. R K Construction" required>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Owner / Submitter Name</label>
+                    <input type="text" id="profModalOwnerName" class="clean-input" placeholder="e.g. Rakesh Shah" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="review-field-item">
+                        <label class="review-field-label">GSTIN</label>
+                        <input type="text" id="profModalGstin" class="clean-input" placeholder="e.g. 24ABCDE1234F1Z5">
+                    </div>
+                    <div class="review-field-item">
+                        <label class="review-field-label">Phone</label>
+                        <input type="text" id="profModalPhone" class="clean-input" placeholder="e.g. +91 98765 43210">
+                    </div>
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Email</label>
+                    <input type="email" id="profModalEmail" class="clean-input" placeholder="e.g. contact@rkconstruction.com">
+                </div>
+                <div class="review-field-item">
+                    <label class="review-field-label">Business Address</label>
+                    <textarea id="profModalAddress" class="clean-input" rows="2" placeholder="e.g. 101 Corporate Hub, Ahmedabad"></textarea>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px;">
+                <button type="button" class="btn-clear" onclick="closeBusinessProfileModal()">Cancel</button>
+                <button type="submit" class="btn-add" style="background: var(--c-dark-emerald); color: var(--c-alabaster);">
+                    Save Details
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 7. TALLY CONVERSION FORMAT CONFIRMATION MODAL (BEFORE EXTRACTION) -->
+<div id="formatConfirmModal" class="bill-modal-overlay">
+    <div class="bill-modal-card" style="max-width: 520px;">
+        <div class="bill-modal-header">
+            <h3>Choose Tally Conversion Format</h3>
+            <button type="button" class="bill-modal-close" onclick="closeFormatConfirmModal()">&times;</button>
+        </div>
+        <div style="padding: 20px 24px;">
+            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.93rem; line-height: 1.5;">
+                Which Tally format do you want to convert these invoices to?
+                <br>
+                <strong style="color: var(--c-dark-emerald); display: inline-block; margin-top: 4px;">
+                    ⚠️ Note: After conversion, export will be locked strictly to your selected format.
+                </strong>
+            </p>
+            <div class="tally-modal-options">
+                <label class="tally-modal-option" id="modalOptCardXml" onclick="setModalFormat('xml')">
+                    <input type="radio" name="modalTallyFormat" value="xml" id="modalRadioXml">
+                    <div class="modal-opt-content">
+                        <div class="modal-opt-header">
+                            <strong>Tally XML (.xml)</strong>
+                            <span class="tally-rec-pill">Recommended</span>
+                        </div>
+                        <span class="modal-opt-sub">Direct native import into TallyPrime & ERP 9 vouchers</span>
+                    </div>
+                </label>
+                <label class="tally-modal-option" id="modalOptCardExcel" onclick="setModalFormat('excel')">
+                    <input type="radio" name="modalTallyFormat" value="excel" id="modalRadioExcel">
+                    <div class="modal-opt-content">
+                        <div class="modal-opt-header">
+                            <strong>Tally Excel (.xlsx)</strong>
+                        </div>
+                        <span class="modal-opt-sub">Structured spreadsheet with voucher ledgers & tax breakdown</span>
+                    </div>
+                </label>
+                <label class="tally-modal-option" id="modalOptCardCsv" onclick="setModalFormat('csv')">
+                    <input type="radio" name="modalTallyFormat" value="csv" id="modalRadioCsv">
+                    <div class="modal-opt-content">
+                        <div class="modal-opt-header">
+                            <strong>Tally CSV (.csv)</strong>
+                        </div>
+                        <span class="modal-opt-sub">Multi-row double-entry debit & credit ledger entries</span>
+                    </div>
+                </label>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+                <button type="button" class="btn-clear" onclick="closeFormatConfirmModal()">Cancel</button>
+                <button type="button" class="btn-add" style="background: var(--c-dark-emerald); color: var(--c-alabaster);" onclick="confirmAndExecuteExtraction()">
+                    Convert & Extract Invoices
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+

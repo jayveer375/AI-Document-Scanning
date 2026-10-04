@@ -69,10 +69,12 @@ function toggleLuxuryTheme() {
         html.removeAttribute("data-theme");
         localStorage.setItem("docuverify_luxury_theme", "alabaster");
         updateThemeBtn(false);
+        window.dispatchEvent(new CustomEvent("themeChanged", { detail: { isDark: false } }));
     } else {
         html.setAttribute("data-theme", "dark-emerald");
         localStorage.setItem("docuverify_luxury_theme", "dark-emerald");
         updateThemeBtn(true);
+        window.dispatchEvent(new CustomEvent("themeChanged", { detail: { isDark: true } }));
     }
 }
 
