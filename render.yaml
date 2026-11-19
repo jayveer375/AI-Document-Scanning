@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: ai-document-scanning
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+databases:
+  - name: ai-document-scanning-db
+    plan: free
+    region: singapore

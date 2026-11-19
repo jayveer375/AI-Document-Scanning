@@ -43,7 +43,11 @@ pg_port = os.environ.get("DB_PORT", "5432")
 pg_name = os.environ.get("DB_NAME", "ai_document_scanning")
 default_pg_uri = f"postgresql://{pg_user}:{pg_pwd}@{pg_host}:{pg_port}/{pg_name}"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", default_pg_uri)
+# Render provides DATABASE_URL starting with "postgres://" but SQLAlchemy needs "postgresql://"
+_db_url = os.environ.get("DATABASE_URL", default_pg_uri)
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,
@@ -1491,4 +1495,5 @@ def api_database_status():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)

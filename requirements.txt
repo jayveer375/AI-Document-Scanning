@@ -5,3 +5,5 @@ mistralai
 PyMuPDF
 python-dateutil
 python-dotenv
+gunicorn
+openpyxl
