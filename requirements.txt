@@ -1,6 +1,7 @@
 flask
 flask-sqlalchemy
 psycopg2-binary
+psycopg2
 mistralai
 PyMuPDF
 python-dateutil
@@ -8,4 +9,4 @@ python-dotenv
 gunicorn
 openpyxl
 opencv-python-headless
-psycopg2
+numpy
